@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
 import { CareGuideGenerator } from '@/components/CareGuideGenerator';
+import { Navigation } from '@/components/Navigation';
 
 export default function GuidesPage() {
   return (
-    <div className="semantic-layout">
+    <>
+      <Navigation />
+      <div className="semantic-layout">
       <header className="semantic-header">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold text-gray-900">Care Guide Generator</h1>
@@ -18,6 +20,7 @@ export default function GuidesPage() {
           <CareGuideGenerator />
         </div>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { Navigation } from '@/components/Navigation';
 
 export default function Home() {
   return (
-    <div className="semantic-layout">
+    <>
+      <Navigation />
+      <div className="semantic-layout">
       <header className="semantic-header">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -172,6 +175,7 @@ export default function Home() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

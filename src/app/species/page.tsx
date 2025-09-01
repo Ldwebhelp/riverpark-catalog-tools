@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import SpeciesGenerator from '@/components/SpeciesGenerator';
+import { Navigation } from '@/components/Navigation';
 
 export default function SpeciesPage() {
   return (
-    <div className="semantic-layout">
+    <>
+      <Navigation />
+      <div className="semantic-layout">
       <header className="semantic-header">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -42,6 +45,7 @@ export default function SpeciesPage() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
