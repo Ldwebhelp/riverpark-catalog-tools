@@ -13,7 +13,7 @@ export interface GuideData {
   title: string;
   slug: string;
   species: string;
-  content: Record<string, unknown>;
+  content: any;
   createdAt: string;
 }
 

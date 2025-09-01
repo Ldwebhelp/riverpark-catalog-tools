@@ -29,7 +29,7 @@ export interface SpeciesInfo {
 }
 
 // Comprehensive Fish Database - 50+ Species
-const SPECIES_DATABASE: Record<string, SpeciesInfo> = {
+export const speciesDatabase: Record<string, SpeciesInfo> = {
   // AXOLOTLS
   'golden axolotl': {
     commonName: 'Golden Axolotl',
@@ -608,22 +608,22 @@ export function getSpeciesFromDatabase(commonName?: string, scientificName?: str
   // Try exact common name match first
   if (commonName) {
     const key = commonName.toLowerCase();
-    if (SPECIES_DATABASE[key]) {
-      return SPECIES_DATABASE[key];
+    if (speciesDatabase[key]) {
+      return speciesDatabase[key];
     }
     
     // Try partial matches for common name
-    const partialMatch = Object.keys(SPECIES_DATABASE).find(dbKey => 
+    const partialMatch = Object.keys(speciesDatabase).find(dbKey => 
       key.includes(dbKey) || dbKey.includes(key)
     );
     if (partialMatch) {
-      return SPECIES_DATABASE[partialMatch];
+      return speciesDatabase[partialMatch];
     }
   }
   
   // Try scientific name match
   if (scientificName) {
-    const scientificMatch = Object.values(SPECIES_DATABASE).find(species =>
+    const scientificMatch = Object.values(speciesDatabase).find(species =>
       species.scientificName?.toLowerCase() === scientificName.toLowerCase()
     );
     if (scientificMatch) {
