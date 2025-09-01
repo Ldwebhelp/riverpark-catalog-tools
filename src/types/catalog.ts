@@ -27,6 +27,7 @@ export interface GeneratedGuide {
   title: string;
   slug: string;
   species: string;
+  productId?: string;
   sections: GuideSection[];
   createdAt: string;
 }
