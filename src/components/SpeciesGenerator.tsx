@@ -48,10 +48,10 @@ export default function SpeciesGenerator() {
 
       for (const [index, record] of jsonData.entries()) {
         try {
-          const recordAny = record as any;
-          const productId = recordAny.productId || recordAny.ProductID || recordAny.id || `product_${index + 1}`;
-          const commonName = recordAny.commonName || recordAny.name || recordAny.CommonName || 'Unknown Species';
-          const scientificName = recordAny.scientificName || recordAny.ScientificName || recordAny.scientific_name;
+          const recordAny = record as Record<string, unknown>;
+          const productId = String(recordAny.productId || recordAny.ProductID || recordAny.id || `product_${index + 1}`);
+          const commonName = String(recordAny.commonName || recordAny.name || recordAny.CommonName || 'Unknown Species');
+          const scientificName = recordAny.scientificName ? String(recordAny.scientificName || recordAny.ScientificName || recordAny.scientific_name) : undefined;
 
           // Get enhanced specifications
           const enhancedSpecs = getEnhancedSpecifications(recordAny);
@@ -66,7 +66,7 @@ export default function SpeciesGenerator() {
 
           const speciesData: SpeciesData = {
             id: crypto.randomUUID(),
-            productId: productId.toString(),
+            productId,
             scientificName,
             commonName,
             specifications: {

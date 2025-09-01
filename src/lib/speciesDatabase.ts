@@ -556,9 +556,9 @@ const FAMILY_CARE_TEMPLATES: Record<string, Partial<SpeciesInfo>> = {
 };
 
 // Smart inference function - enhanced with family patterns
-export function getEnhancedSpecifications(record: any): SpeciesInfo {
-  const commonName = (record.commonName || record.name || 'Unknown Species').toLowerCase();
-  const scientificName = record.scientificName || record.ScientificName;
+export function getEnhancedSpecifications(record: Record<string, unknown>): SpeciesInfo {
+  const commonName = String(record.commonName || record.name || 'Unknown Species').toLowerCase();
+  const scientificName = record.scientificName ? String(record.scientificName || record.ScientificName) : undefined;
   
   // Try direct species match first
   const directMatch = getSpeciesFromDatabase(commonName, scientificName);

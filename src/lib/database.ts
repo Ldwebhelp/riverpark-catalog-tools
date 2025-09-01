@@ -37,7 +37,7 @@ export class CatalogDatabase {
   }
 
   // Species Data Management
-  static async saveSpeciesData(data: any[], stats: Record<string, number>): Promise<string> {
+  static async saveSpeciesData(data: unknown[], stats: Record<string, number>): Promise<string> {
     const sessionData: Omit<SessionData, 'id'> = {
       data,
       stats,

@@ -3,7 +3,7 @@ export interface SpeciesData {
   productId: string;
   scientificName?: string;
   commonName?: string;
-  specifications: Record<string, unknown>;
+  specifications: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }

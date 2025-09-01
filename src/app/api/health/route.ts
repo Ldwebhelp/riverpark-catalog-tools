@@ -14,7 +14,7 @@ export async function GET() {
         speciesDatabase: '50+ species'
       }
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { 
         status: 'error',
