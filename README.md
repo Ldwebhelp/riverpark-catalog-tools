@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🐠 Riverpark Catalog Tools
 
-## Getting Started
+Professional aquarium business catalog management suite built with Next.js and TypeScript.
 
-First, run the development server:
+## Features
+
+✅ **Species Data Generator**: Transform Excel files into structured JSON with 50+ fish database  
+✅ **Care Guide Generator**: Create comprehensive 7-section care guides  
+✅ **Professional UI**: Mobile-responsive design with semantic HTML layout  
+✅ **Modern Tech Stack**: Next.js 15, TypeScript, Tailwind CSS v3.4.17  
+
+## Quick Start
 
 ```bash
+# Clone and install
+git clone <this-repo>
+cd riverpark-catalog-tools
+npm install
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Visit: http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Development server
+npm run dev
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Production build
+npm run build
 
-## Learn More
+# Start production server
+npm start
 
-To learn more about Next.js, take a look at the following resources:
+# Linting
+npm run lint
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+riverpark-catalog-tools/
+├── src/
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── dashboard/          # Main dashboard
+│   │   ├── species/            # Species data generator
+│   │   ├── guides/             # Care guide generator
+│   │   └── api/                # API endpoints
+│   ├── components/             # Reusable UI components
+│   ├── lib/                    # Utilities and business logic
+│   └── types/                  # TypeScript type definitions
+├── public/                     # Static assets
+└── docs/                       # Documentation
+```
 
-## Deploy on Vercel
+## Usage
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. **Species Generator**: Upload Excel → Generate JSON files with care specifications
+2. **Guide Generator**: Create comprehensive care guides like "Our Guide To Keeping Electric Yellow Cichlid Fish"
+3. **Professional Dashboard**: Monitor progress with real-time status tracking
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+
+- **Framework**: Next.js 15.5.2 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v3.4.17
+- **Excel Processing**: XLSX.js
+- **Deployment**: Vercel
+
+## Deployment
+
+```bash
+# Deploy to Vercel
+vercel --prod
+```
+
+---
+
+**Built for Riverpark Catalyst** - Professional aquarium business tools
