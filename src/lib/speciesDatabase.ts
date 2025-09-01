@@ -584,7 +584,7 @@ export function getEnhancedSpecifications(record: Record<string, unknown>): Spec
   
   // Ultimate fallback - basic community fish template
   return {
-    commonName: record.commonName || record.name || 'Unknown Species',
+    commonName: String(record.commonName || record.name || 'Unknown Species'),
     scientificName,
     family: 'Unknown',
     origin: 'Unknown',
