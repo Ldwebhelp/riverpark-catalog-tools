@@ -106,7 +106,7 @@ export default function SpeciesGenerator() {
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${species.commonName?.toLowerCase().replace(/\s+/g, '-') || 'species'}-species-data.json`;
+    link.download = `${species.productId}-species.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
