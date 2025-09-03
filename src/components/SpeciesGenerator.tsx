@@ -57,18 +57,19 @@ export default function SpeciesGenerator() {
           const scientificName = recordAny.scientificName ? String(recordAny.scientificName || recordAny.ScientificName || recordAny.scientific_name) : undefined;
           const waterType = recordAny.waterType ? String(recordAny.waterType) : undefined;
 
-          // Get enhanced specifications from real database matches only
-          const enhancedSpecs = getEnhancedSpecifications(recordAny);
+          // Get enhanced specifications - either from database or auto-generated
+          const enhancedResult = getEnhancedSpecifications(recordAny);
+          const enhancedSpecs = enhancedResult.specs;
           
-          // Track whether we found a real database match
-          if (enhancedSpecs) {
+          // Track whether we found a real database match or used auto-generation
+          if (enhancedResult.isDatabaseMatch) {
             processingStats.enhanced++;
           } else {
-            processingStats.fallbackUsed++; // Tracks species using only file data (no database enhancement)
+            processingStats.fallbackUsed++; // Tracks species using auto-generated specifications
           }
           
-          // Use waterType from file, or database match, or require user input
-          const finalWaterType = waterType || enhancedSpecs?.waterType;
+          // Use waterType from file, or enhanced specs
+          const finalWaterType = waterType || enhancedSpecs.waterType;
 
           const speciesData: SpeciesData = {
             id: crypto.randomUUID(),
@@ -78,8 +79,8 @@ export default function SpeciesGenerator() {
             commonName,
             specifications: {
               ...recordAny, // Original data from file
-              ...(enhancedSpecs || {}), // Enhanced specifications (only if database match found)
-              ...(finalWaterType ? { waterType: finalWaterType } : {}) // Include waterType only if available
+              ...enhancedSpecs, // Enhanced specifications (either database match or auto-generated)
+              waterType: finalWaterType // Ensure waterType is included
             },
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -395,8 +396,8 @@ export default function SpeciesGenerator() {
                 <div className="text-sm text-gray-600">Database Enhanced</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">{stats.fallbackUsed}</div>
-                <div className="text-sm text-gray-600">File Data Only</div>
+                <div className="text-2xl font-bold text-blue-600">{stats.fallbackUsed}</div>
+                <div className="text-sm text-gray-600">Auto-Generated</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">{stats.errors}</div>

@@ -696,13 +696,255 @@ export const speciesDatabase: Record<string, SpeciesInfo> = {
   }
 };
 
-// Get species data only from real database matches - NO FALLBACKS
-export function getEnhancedSpecifications(record: Record<string, unknown>): SpeciesInfo | null {
+// Get species data from database matches OR generate comprehensive specifications automatically
+export function getEnhancedSpecifications(record: Record<string, unknown>): { specs: SpeciesInfo; isDatabaseMatch: boolean } {
   const commonName = String(record.commonName || record.name || 'Unknown Species').toLowerCase();
   const scientificName = record.scientificName ? String(record.scientificName || record.ScientificName) : undefined;
   
-  // Only return real database matches - no artificial fallback data
-  return getSpeciesFromDatabase(commonName, scientificName);
+  // Try database match first
+  const databaseMatch = getSpeciesFromDatabase(commonName, scientificName);
+  if (databaseMatch) {
+    return { specs: databaseMatch, isDatabaseMatch: true };
+  }
+  
+  // If no database match, automatically generate comprehensive specifications
+  return { specs: generateComprehensiveSpecifications(record), isDatabaseMatch: false };
+}
+
+// Automatically generate comprehensive species specifications
+function generateComprehensiveSpecifications(record: Record<string, unknown>): SpeciesInfo {
+  const commonName = String(record.commonName || record.name || 'Unknown Species');
+  const scientificName = record.scientificName ? String(record.scientificName) : undefined;
+  
+  // Analyze species type and characteristics from name and scientific name
+  const speciesAnalysis = analyzeSpeciesCharacteristics(commonName, scientificName);
+  
+  return {
+    commonName: commonName,
+    scientificName: scientificName,
+    family: speciesAnalysis.family,
+    origin: speciesAnalysis.origin,
+    waterType: speciesAnalysis.waterType,
+    minTankSize: speciesAnalysis.minTankSize,
+    temperatureRange: speciesAnalysis.temperatureRange,
+    phRange: speciesAnalysis.phRange,
+    maxSize: speciesAnalysis.maxSize,
+    diet: speciesAnalysis.diet,
+    careLevel: speciesAnalysis.careLevel,
+    temperament: speciesAnalysis.temperament,
+    groupSize: speciesAnalysis.groupSize,
+    compatibility: speciesAnalysis.compatibility,
+    breeding: speciesAnalysis.breeding,
+    specialRequirements: speciesAnalysis.specialRequirements
+  };
+}
+
+// Analyze species characteristics based on common name and scientific name
+function analyzeSpeciesCharacteristics(commonName: string, scientificName?: string) {
+  const nameAnalysis = commonName.toLowerCase();
+  const scientificAnalysis = scientificName?.toLowerCase() || '';
+  
+  // Default specifications
+  const analysis: {
+    family: string;
+    origin: string;
+    waterType: 'Freshwater' | 'Coldwater' | 'Brackish' | 'Saltwater';
+    minTankSize: string;
+    temperatureRange: string;
+    phRange: string;
+    maxSize: string;
+    diet: string;
+    careLevel: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
+    temperament: 'Peaceful' | 'Semi-Aggressive' | 'Aggressive' | 'Territorial';
+    groupSize: string;
+    compatibility: string[];
+    breeding?: string;
+    specialRequirements?: string[];
+  } = {
+    family: 'Unknown',
+    origin: 'Captive bred',
+    waterType: 'Freshwater',
+    minTankSize: '100L',
+    temperatureRange: '22-26°C',
+    phRange: '6.5-7.5',
+    maxSize: '8cm',
+    diet: 'Omnivore - flakes, pellets, live/frozen foods',
+    careLevel: 'Intermediate',
+    temperament: 'Peaceful',
+    groupSize: '6+ (schooling species)',
+    compatibility: ['Community fish of similar size'],
+    breeding: 'Egg scatterer, separate breeding tank recommended',
+    specialRequirements: ['Well-planted tank', 'Good water quality', 'Varied diet']
+  };
+  
+  // CICHLID DETECTION
+  if (nameAnalysis.includes('cichlid') || scientificAnalysis.includes('tropheus') || 
+      scientificAnalysis.includes('labidochromis') || scientificAnalysis.includes('pseudotropheus') ||
+      scientificAnalysis.includes('aulonocara') || scientificAnalysis.includes('melanochromis')) {
+    
+    analysis.family = 'Cichlidae';
+    analysis.temperament = 'Semi-Aggressive';
+    analysis.groupSize = '6+ (1 male, multiple females recommended)';
+    analysis.breeding = 'Mouthbrooder, spawns readily in aquarium';
+    analysis.compatibility = ['Other cichlids of similar size', 'Robust community fish'];
+    
+    // Lake Malawi cichlids
+    if (scientificAnalysis.includes('labidochromis') || scientificAnalysis.includes('pseudotropheus') ||
+        nameAnalysis.includes('electric yellow') || nameAnalysis.includes('saulosi')) {
+      analysis.origin = 'Lake Malawi, Africa';
+      analysis.minTankSize = '200L';
+      analysis.temperatureRange = '24-26°C';
+      analysis.phRange = '7.8-8.6';
+      analysis.maxSize = '10cm';
+      analysis.diet = 'Omnivore - algae, small invertebrates, quality cichlid pellets';
+      analysis.careLevel = 'Beginner';
+      analysis.specialRequirements = ['Hard alkaline water', 'Rocky décor with caves', 'Good filtration'];
+    }
+    
+    // Lake Tanganyika cichlids (Tropheus)
+    if (scientificAnalysis.includes('tropheus') || nameAnalysis.includes('white spotted')) {
+      analysis.origin = 'Lake Tanganyika, Africa';
+      analysis.minTankSize = '300L';
+      analysis.temperatureRange = '24-27°C';
+      analysis.phRange = '8.0-9.0';
+      analysis.maxSize = '12cm';
+      analysis.diet = 'Herbivore - algae, spirulina, quality vegetable pellets';
+      analysis.careLevel = 'Advanced';
+      analysis.temperament = 'Aggressive';
+      analysis.groupSize = '12+ (large group to spread aggression)';
+      analysis.compatibility = ['Other Tropheus species', 'Large Tanganyika cichlids'];
+      analysis.breeding = 'Mouthbrooder, requires very large tank for breeding groups';
+      analysis.specialRequirements = ['Very hard alkaline water', 'Excellent filtration', 'Rocky caves', 'Vegetarian diet essential'];
+    }
+  }
+  
+  // TETRA DETECTION
+  else if (nameAnalysis.includes('tetra') || scientificAnalysis.includes('hyphessobrycon') ||
+           scientificAnalysis.includes('paracheirodon')) {
+    analysis.family = 'Characidae';
+    analysis.origin = 'South America';
+    analysis.minTankSize = '80L';
+    analysis.temperatureRange = '22-26°C';
+    analysis.phRange = '6.0-7.0';
+    analysis.maxSize = '4cm';
+    analysis.diet = 'Omnivore - micro pellets, flakes, small live foods';
+    analysis.careLevel = 'Beginner';
+    analysis.temperament = 'Peaceful';
+    analysis.groupSize = '10+ (tight schooling species)';
+    analysis.compatibility = ['Other peaceful community fish', 'Small catfish', 'Dwarf shrimp'];
+    analysis.breeding = 'Egg scatterer, soft acidic water for breeding';
+    analysis.specialRequirements = ['Soft acidic water', 'Planted tank', 'Schooling environment'];
+  }
+  
+  // GUPPY/LIVEBEARER DETECTION
+  else if (nameAnalysis.includes('guppy') || nameAnalysis.includes('molly') || 
+           nameAnalysis.includes('platy') || nameAnalysis.includes('swordtail') ||
+           scientificAnalysis.includes('poecilia') || scientificAnalysis.includes('xiphophorus')) {
+    analysis.family = 'Poeciliidae';
+    analysis.origin = 'Central America';
+    analysis.minTankSize = '60L';
+    analysis.temperatureRange = '22-28°C';
+    analysis.phRange = '7.0-8.0';
+    analysis.maxSize = '6cm';
+    analysis.diet = 'Omnivore - flakes, algae, small live foods';
+    analysis.careLevel = 'Beginner';
+    analysis.temperament = 'Peaceful';
+    analysis.groupSize = '3+ (2 females per male)';
+    analysis.compatibility = ['Most peaceful community fish'];
+    analysis.breeding = 'Livebearer, very prolific, separate pregnant females';
+    analysis.specialRequirements = ['Slightly hard water', 'Plants for cover', 'Separate breeding area'];
+  }
+  
+  // BETTA DETECTION
+  else if (nameAnalysis.includes('betta') || nameAnalysis.includes('fighting fish') ||
+           scientificAnalysis.includes('betta splendens')) {
+    analysis.family = 'Osphronemidae';
+    analysis.origin = 'Southeast Asia';
+    analysis.minTankSize = '20L';
+    analysis.temperatureRange = '24-28°C';
+    analysis.phRange = '6.5-7.5';
+    analysis.maxSize = '6cm';
+    analysis.diet = 'Carnivore - betta pellets, bloodworms, brine shrimp';
+    analysis.careLevel = 'Beginner';
+    analysis.temperament = 'Aggressive';
+    analysis.groupSize = 'Single male only';
+    analysis.compatibility = ['Peaceful bottom dwellers', 'Non-aggressive tankmates'];
+    analysis.breeding = 'Bubble nest builder, separate breeding tank required';
+    analysis.specialRequirements = ['Gentle filtration', 'Floating plants', 'Warm water', 'No fin nippers'];
+  }
+  
+  // ANGELFISH DETECTION
+  else if (nameAnalysis.includes('angel') || scientificAnalysis.includes('pterophyllum')) {
+    analysis.family = 'Cichlidae';
+    analysis.origin = 'South America';
+    analysis.minTankSize = '200L';
+    analysis.temperatureRange = '24-28°C';
+    analysis.phRange = '6.5-7.5';
+    analysis.maxSize = '15cm';
+    analysis.diet = 'Omnivore - flakes, pellets, live/frozen foods';
+    analysis.careLevel = 'Intermediate';
+    analysis.temperament = 'Semi-Aggressive';
+    analysis.groupSize = '4+ (pairs form naturally)';
+    analysis.compatibility = ['Medium-sized community fish', 'Other peaceful cichlids'];
+    analysis.breeding = 'Substrate spawner, pairs guard eggs and fry';
+    analysis.specialRequirements = ['Tall tank', 'Soft to medium-hard water', 'Peaceful environment'];
+  }
+  
+  // CORYDORAS DETECTION
+  else if (nameAnalysis.includes('cory') || nameAnalysis.includes('corydoras') ||
+           scientificAnalysis.includes('corydoras')) {
+    analysis.family = 'Callichthyidae';
+    analysis.origin = 'South America';
+    analysis.minTankSize = '80L';
+    analysis.temperatureRange = '22-26°C';
+    analysis.phRange = '6.0-7.5';
+    analysis.maxSize = '7cm';
+    analysis.diet = 'Omnivore - sinking pellets, bloodworms, algae wafers';
+    analysis.careLevel = 'Beginner';
+    analysis.temperament = 'Peaceful';
+    analysis.groupSize = '6+ (social bottom dwellers)';
+    analysis.compatibility = ['All peaceful community fish'];
+    analysis.breeding = 'Egg scatterer, cooler water triggers spawning';
+    analysis.specialRequirements = ['Soft substrate', 'Good water quality', 'Social group'];
+  }
+  
+  // PLECO DETECTION
+  else if (nameAnalysis.includes('pleco') || nameAnalysis.includes('plecostomus') ||
+           scientificAnalysis.includes('ancistrus') || scientificAnalysis.includes('hypostomus')) {
+    analysis.family = 'Loricariidae';
+    analysis.origin = 'South America';
+    analysis.minTankSize = '150L';
+    analysis.temperatureRange = '22-28°C';
+    analysis.phRange = '6.5-7.5';
+    analysis.maxSize = '15cm';
+    analysis.diet = 'Omnivore - algae wafers, vegetables, driftwood';
+    analysis.careLevel = 'Beginner';
+    analysis.temperament = 'Peaceful';
+    analysis.groupSize = '1-2 (territorial with own species)';
+    analysis.compatibility = ['Most community fish'];
+    analysis.breeding = 'Cave spawner, requires specific conditions';
+    analysis.specialRequirements = ['Driftwood essential', 'Caves/hiding spots', 'Vegetable matter in diet'];
+  }
+  
+  // GOURAMI DETECTION
+  else if (nameAnalysis.includes('gourami') || scientificAnalysis.includes('trichogaster') ||
+           scientificAnalysis.includes('colisa')) {
+    analysis.family = 'Osphronemidae';
+    analysis.origin = 'Southeast Asia';
+    analysis.minTankSize = '100L';
+    analysis.temperatureRange = '22-28°C';
+    analysis.phRange = '6.0-7.5';
+    analysis.maxSize = '10cm';
+    analysis.diet = 'Omnivore - flakes, pellets, live/frozen foods';
+    analysis.careLevel = 'Beginner';
+    analysis.temperament = 'Peaceful';
+    analysis.groupSize = '2-3 (pairs or small groups)';
+    analysis.compatibility = ['Peaceful community fish'];
+    analysis.breeding = 'Bubble nest builder, surface spawner';
+    analysis.specialRequirements = ['Surface access for air breathing', 'Planted tank', 'Gentle filtration'];
+  }
+  
+  return analysis;
 }
 
 // Direct database lookup
