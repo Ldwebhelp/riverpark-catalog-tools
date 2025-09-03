@@ -114,6 +114,7 @@ export function CareGuideGenerator() {
       slug,
       species: commonName,
       productId: speciesData.productId,
+      type: speciesData.type || 'care-guide',
       sections,
       createdAt: new Date().toISOString()
     };
@@ -170,6 +171,7 @@ export function CareGuideGenerator() {
       slug: guide.slug,
       species: guide.species,
       productId: guide.productId,
+      type: guide.type,
       sections: guide.sections,
       metadata: {
         generatedAt: guide.createdAt,
@@ -208,6 +210,8 @@ export function CareGuideGenerator() {
         title: guide.title,
         slug: guide.slug,
         species: guide.species,
+        productId: guide.productId,
+        type: guide.type,
         sections: guide.sections
       })),
       metadata: {

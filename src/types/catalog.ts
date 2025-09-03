@@ -1,6 +1,7 @@
 export interface SpeciesData {
   id: string;
   productId: string;
+  type?: string;
   scientificName?: string;
   commonName?: string;
   specifications: Record<string, any>;
@@ -28,6 +29,7 @@ export interface GeneratedGuide {
   slug: string;
   species: string;
   productId?: string;
+  type?: string;
   sections: GuideSection[];
   createdAt: string;
 }

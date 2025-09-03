@@ -52,6 +52,7 @@ export default function SpeciesGenerator() {
           const productId = String(recordAny.productId || recordAny.ProductID || recordAny.id || `product_${index + 1}`);
           const commonName = String(recordAny.commonName || recordAny.name || recordAny.CommonName || 'Unknown Species');
           const scientificName = recordAny.scientificName ? String(recordAny.scientificName || recordAny.ScientificName || recordAny.scientific_name) : undefined;
+          const waterType = recordAny.waterType ? String(recordAny.waterType) : undefined;
 
           // Get enhanced specifications
           const enhancedSpecs = getEnhancedSpecifications(recordAny);
@@ -63,15 +64,20 @@ export default function SpeciesGenerator() {
           } else {
             processingStats.fallbackUsed++;
           }
+          
+          // Use waterType from file if provided, otherwise use database/enhanced specs
+          const finalWaterType = waterType || enhancedSpecs.waterType || 'Freshwater';
 
           const speciesData: SpeciesData = {
             id: crypto.randomUUID(),
             productId,
+            type: String(recordAny.type || 'species'),
             scientificName,
             commonName,
             specifications: {
               ...recordAny, // Original data
-              ...enhancedSpecs // Enhanced specifications
+              ...enhancedSpecs, // Enhanced specifications
+              waterType: finalWaterType // Ensure waterType is included
             },
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -329,6 +335,9 @@ export default function SpeciesGenerator() {
                       )}
                       {species.specifications.family && (
                         <div><span className="font-medium">Family:</span> {species.specifications.family}</div>
+                      )}
+                      {species.specifications.waterType && (
+                        <div><span className="font-medium">Water Type:</span> {species.specifications.waterType}</div>
                       )}
                     </div>
                   </div>
