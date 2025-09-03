@@ -61,7 +61,7 @@ export default function SpeciesGenerator() {
           if (enhancedSpecs) {
             processingStats.enhanced++;
           } else {
-            processingStats.fallbackUsed++; // Now tracks species with no database match
+            processingStats.fallbackUsed++; // Tracks species using only file data (no database enhancement)
           }
           
           // Use waterType from file, or database match, or require user input
@@ -269,7 +269,7 @@ export default function SpeciesGenerator() {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-600">{stats.fallbackUsed}</div>
-                <div className="text-sm text-gray-600">No Database Match</div>
+                <div className="text-sm text-gray-600">File Data Only</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">{stats.errors}</div>
