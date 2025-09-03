@@ -13,6 +13,9 @@ export default function SpeciesGenerator() {
   const [stats, setStats] = useState<GenerationStats | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<Record<string, boolean>>({});
+  const [batchDownloading, setBatchDownloading] = useState(false);
+  const [batchSize, setBatchSize] = useState(10);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,6 +175,72 @@ export default function SpeciesGenerator() {
     setDownloadStatus(allDownloaded);
   };
 
+  const downloadBatchJSON = async () => {
+    if (batchDownloading) return;
+    
+    setBatchDownloading(true);
+    
+    // Get species that haven't been downloaded yet
+    const undownloadedSpecies = generatedData.filter(species => !downloadStatus[species.id]);
+    const speciesToDownload = undownloadedSpecies.slice(0, batchSize);
+    
+    if (speciesToDownload.length === 0) {
+      alert('All species have already been downloaded!');
+      setBatchDownloading(false);
+      return;
+    }
+
+    setBatchProgress({ current: 0, total: speciesToDownload.length });
+
+    try {
+      for (let i = 0; i < speciesToDownload.length; i++) {
+        const species = speciesToDownload[i];
+        setBatchProgress({ current: i + 1, total: speciesToDownload.length });
+
+        // Create JSON data
+        const dataStr = JSON.stringify(species, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        
+        // Create and trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${species.productId}-species.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // Track download
+        if (sessionId) {
+          await CatalogDatabase.trackDownload({
+            sessionId,
+            fileName: link.download,
+            downloadedAt: new Date().toISOString(),
+            fileType: 'species'
+          });
+        }
+
+        // Update download status
+        setDownloadStatus(prev => ({
+          ...prev,
+          [species.id]: true
+        }));
+
+        // Small delay between downloads to avoid browser issues
+        if (i < speciesToDownload.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    } catch (error) {
+      console.error('Batch download failed:', error);
+      alert('Batch download failed. Please try again.');
+    } finally {
+      setBatchDownloading(false);
+      setBatchProgress({ current: 0, total: 0 });
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* File Upload Section */}
@@ -250,12 +319,70 @@ export default function SpeciesGenerator() {
           <section className="semantic-section">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Generation Statistics</h3>
-              <button
-                onClick={downloadAllJSON}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Download All JSON
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={downloadAllJSON}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Download All JSON
+                </button>
+              </div>
+            </div>
+            
+            {/* Batch Download Controls */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <h4 className="font-medium text-blue-900">Batch Download</h4>
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm text-blue-700">Quantity:</label>
+                    <select
+                      value={batchSize}
+                      onChange={(e) => setBatchSize(Number(e.target.value))}
+                      className="rounded border-blue-300 text-sm"
+                      disabled={batchDownloading}
+                    >
+                      <option value={10}>10 files</option>
+                      <option value={20}>20 files</option>
+                      <option value={30}>30 files</option>
+                      <option value={40}>40 files</option>
+                      <option value={50}>50 files</option>
+                    </select>
+                  </div>
+                  <div className="text-sm text-blue-600">
+                    {generatedData.filter(s => !downloadStatus[s.id]).length} remaining
+                  </div>
+                </div>
+                
+                <button
+                  onClick={downloadBatchJSON}
+                  disabled={batchDownloading || generatedData.filter(s => !downloadStatus[s.id]).length === 0}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  {batchDownloading ? `Downloading... (${batchProgress.current}/${batchProgress.total})` : `Download ${batchSize} JSON Files`}
+                </button>
+              </div>
+              
+              {batchDownloading && (
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-blue-700 mb-1">
+                    <span>Batch Progress</span>
+                    <span>{batchProgress.current} / {batchProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              
+              {!batchDownloading && (
+                <div className="mt-2 text-xs text-blue-600">
+                  💡 Tip: Files download to your browser&apos;s default download folder. Set a specific folder in your browser settings if desired.
+                </div>
+              )}
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
