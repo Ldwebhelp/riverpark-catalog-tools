@@ -696,97 +696,13 @@ export const speciesDatabase: Record<string, SpeciesInfo> = {
   }
 };
 
-// Family-based fallback care specifications for unknown species
-const FAMILY_CARE_TEMPLATES: Record<string, Partial<SpeciesInfo>> = {
-  'Cichlidae': {
-    family: 'Cichlidae',
-    waterType: 'Freshwater',
-    minTankSize: '150L',
-    temperatureRange: '24-28°C',
-    phRange: '7.0-8.5',
-    diet: 'Omnivore - quality pellets, frozen foods',
-    careLevel: 'Intermediate',
-    temperament: 'Semi-Aggressive',
-    groupSize: 'Species dependent',
-    compatibility: ['Other cichlids of similar temperament'],
-    specialRequirements: ['Good filtration', 'Territorial considerations']
-  },
-  
-  'Characidae': {
-    family: 'Characidae',
-    waterType: 'Freshwater',
-    minTankSize: '60L',
-    temperatureRange: '22-26°C',
-    phRange: '6.0-7.0',
-    diet: 'Omnivore - flakes, micro pellets, live foods',
-    careLevel: 'Beginner',
-    temperament: 'Peaceful',
-    groupSize: '6+ (shoaling species)',
-    compatibility: ['Peaceful community fish'],
-    specialRequirements: ['Soft acidic water preferred', 'Planted tank']
-  },
-  
-  'Poeciliidae': {
-    family: 'Poeciliidae',
-    waterType: 'Freshwater',
-    minTankSize: '60L',
-    temperatureRange: '22-28°C',
-    phRange: '7.0-8.2',
-    diet: 'Omnivore - flakes, algae, vegetables',
-    careLevel: 'Beginner',
-    temperament: 'Peaceful',
-    groupSize: '3+ (more females than males)',
-    compatibility: ['Peaceful community fish'],
-    breeding: 'Livebearer - easy to breed',
-    specialRequirements: ['Moderately hard water', 'Plants for fry cover']
-  }
-};
-
-// Smart inference function - enhanced with family patterns
-export function getEnhancedSpecifications(record: Record<string, unknown>): SpeciesInfo {
+// Get species data only from real database matches - NO FALLBACKS
+export function getEnhancedSpecifications(record: Record<string, unknown>): SpeciesInfo | null {
   const commonName = String(record.commonName || record.name || 'Unknown Species').toLowerCase();
   const scientificName = record.scientificName ? String(record.scientificName || record.ScientificName) : undefined;
   
-  // Try direct species match first
-  const directMatch = getSpeciesFromDatabase(commonName, scientificName);
-  if (directMatch) {
-    return { ...directMatch };
-  }
-  
-  // Try family-based inference if scientific name available
-  if (scientificName) {
-    const familyName = extractFamilyFromScientificName(scientificName);
-    const familyTemplate = FAMILY_CARE_TEMPLATES[familyName];
-    if (familyTemplate) {
-      return {
-        commonName: record.commonName || record.name || 'Unknown Species',
-        scientificName,
-        origin: 'Unknown',
-        maxSize: 'Unknown',
-        compatibility: [],
-        ...familyTemplate
-      } as SpeciesInfo;
-    }
-  }
-  
-  // Ultimate fallback - basic community fish template
-  return {
-    commonName: String(record.commonName || record.name || 'Unknown Species'),
-    scientificName,
-    family: 'Unknown',
-    origin: 'Unknown',
-    waterType: 'Freshwater',
-    minTankSize: '80L',
-    temperatureRange: '22-26°C',
-    phRange: '6.5-7.5',
-    maxSize: 'Unknown',
-    diet: 'Omnivore - quality flakes and pellets',
-    careLevel: 'Beginner',
-    temperament: 'Peaceful',
-    groupSize: 'Species dependent',
-    compatibility: ['Research required for compatibility'],
-    specialRequirements: ['Standard aquarium care', 'Research species-specific needs']
-  };
+  // Only return real database matches - no artificial fallback data
+  return getSpeciesFromDatabase(commonName, scientificName);
 }
 
 // Direct database lookup
@@ -822,21 +738,3 @@ export function getSpeciesFromDatabase(commonName?: string, scientificName?: str
   return null;
 }
 
-// Helper function to extract family from scientific name
-function extractFamilyFromScientificName(scientificName: string): string {
-  // This is a simplified approach - in practice you'd want a more comprehensive taxonomy database
-  const knownGenera: Record<string, string> = {
-    'Labidochromis': 'Cichlidae',
-    'Pseudotropheus': 'Cichlidae',
-    'Aulonocara': 'Cichlidae',
-    'Paracheirodon': 'Characidae',
-    'Hyphessobrycon': 'Characidae',
-    'Poecilia': 'Poeciliidae',
-    'Xiphophorus': 'Poeciliidae',
-    'Corydoras': 'Callichthyidae',
-    'Ancistrus': 'Loricariidae'
-  };
-  
-  const genus = scientificName.split(' ')[0];
-  return knownGenera[genus] || 'Unknown';
-}

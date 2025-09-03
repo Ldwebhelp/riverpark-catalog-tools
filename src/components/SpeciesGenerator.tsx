@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { getEnhancedSpecifications, getSpeciesFromDatabase } from '@/lib/speciesDatabase';
+import { getEnhancedSpecifications } from '@/lib/speciesDatabase';
 import { CatalogDatabase } from '@/lib/database';
 import { SpeciesData, GenerationStats } from '@/types/catalog';
 
@@ -54,19 +54,18 @@ export default function SpeciesGenerator() {
           const scientificName = recordAny.scientificName ? String(recordAny.scientificName || recordAny.ScientificName || recordAny.scientific_name) : undefined;
           const waterType = recordAny.waterType ? String(recordAny.waterType) : undefined;
 
-          // Get enhanced specifications
+          // Get enhanced specifications from real database matches only
           const enhancedSpecs = getEnhancedSpecifications(recordAny);
           
-          // Check if we found a database match
-          const dbSpecies = getSpeciesFromDatabase(commonName, scientificName);
-          if (dbSpecies) {
+          // Track whether we found a real database match
+          if (enhancedSpecs) {
             processingStats.enhanced++;
           } else {
-            processingStats.fallbackUsed++;
+            processingStats.fallbackUsed++; // Now tracks species with no database match
           }
           
-          // Use waterType from file if provided, otherwise use database/enhanced specs
-          const finalWaterType = waterType || enhancedSpecs.waterType || 'Freshwater';
+          // Use waterType from file, or database match, or require user input
+          const finalWaterType = waterType || enhancedSpecs?.waterType;
 
           const speciesData: SpeciesData = {
             id: crypto.randomUUID(),
@@ -75,9 +74,9 @@ export default function SpeciesGenerator() {
             scientificName,
             commonName,
             specifications: {
-              ...recordAny, // Original data
-              ...enhancedSpecs, // Enhanced specifications
-              waterType: finalWaterType // Ensure waterType is included
+              ...recordAny, // Original data from file
+              ...(enhancedSpecs || {}), // Enhanced specifications (only if database match found)
+              ...(finalWaterType ? { waterType: finalWaterType } : {}) // Include waterType only if available
             },
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -270,7 +269,7 @@ export default function SpeciesGenerator() {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-600">{stats.fallbackUsed}</div>
-                <div className="text-sm text-gray-600">Fallback Used</div>
+                <div className="text-sm text-gray-600">No Database Match</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">{stats.errors}</div>

@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { getSpeciesFromDatabase } from '@/lib/speciesDatabase';
 import { CatalogDatabase } from '@/lib/database';
 import { GeneratedGuide, GuideSection, SpeciesData } from '@/types/catalog';
-import * as XLSX from 'xlsx';
 
 interface GenerationProgress {
   total: number;
@@ -16,6 +15,7 @@ export function CareGuideGenerator() {
   const [uploadedSpeciesData, setUploadedSpeciesData] = useState<SpeciesData[]>([]);
   const [selectedSpecies, setSelectedSpecies] = useState<string[]>([]);
   const [generatedGuides, setGeneratedGuides] = useState<GeneratedGuide[]>([]);
+  const [skippedSpecies, setSkippedSpecies] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -54,27 +54,16 @@ export function CareGuideGenerator() {
     setSelectedSpecies([]);
   };
 
-  const generateGuideFromSpeciesData = (speciesData: SpeciesData): GeneratedGuide => {
+  const generateGuideFromSpeciesData = (speciesData: SpeciesData): GeneratedGuide | null => {
     const commonName = speciesData.commonName || 'Unknown Species';
-    const species = getSpeciesFromDatabase(commonName);
+    const species = getSpeciesFromDatabase(commonName, speciesData.scientificName);
     
-    // Use database species info if available, otherwise use specifications from uploaded data
-    const specInfo = species || {
-      commonName,
-      scientificName: speciesData.scientificName,
-      family: String(speciesData.specifications.family || 'Unknown'),
-      origin: String(speciesData.specifications.origin || 'Unknown'),
-      minTankSize: String(speciesData.specifications.minTankSize || '80L'),
-      temperatureRange: String(speciesData.specifications.temperatureRange || '22-26°C'),
-      phRange: String(speciesData.specifications.phRange || '6.5-7.5'),
-      maxSize: String(speciesData.specifications.maxSize || '10cm'),
-      diet: String(speciesData.specifications.diet || 'Omnivore'),
-      careLevel: 'Intermediate' as const,
-      temperament: 'Peaceful' as const,
-      groupSize: String(speciesData.specifications.groupSize || 'single or group'),
-      compatibility: [],
-      specialRequirements: []
-    };
+    // Only generate guides for species with real database matches - no fallback data
+    if (!species) {
+      return null;
+    }
+    
+    const specInfo = species;
 
     const slug = commonName.toLowerCase().replace(/\s+/g, '-');
     const sections: GuideSection[] = [
@@ -128,6 +117,7 @@ export function CareGuideGenerator() {
 
     try {
       const guides: GeneratedGuide[] = [];
+      const skipped: string[] = [];
 
       for (let i = 0; i < selectedSpecies.length; i++) {
         const productId = selectedSpecies[i];
@@ -137,23 +127,31 @@ export function CareGuideGenerator() {
         setProgress({ total: selectedSpecies.length, current: i, currentSpecies: speciesData.commonName || 'Unknown' });
 
         const guide = generateGuideFromSpeciesData(speciesData);
-        guides.push(guide);
+        
+        // Only process guides for species with database matches
+        if (guide) {
+          guides.push(guide);
 
-        // Save individual guide
-        await CatalogDatabase.saveGuide({
-          id: guide.id,
-          title: guide.title,
-          slug: guide.slug,
-          species: guide.species,
-          content: guide.sections,
-          createdAt: guide.createdAt
-        });
+          // Save individual guide
+          await CatalogDatabase.saveGuide({
+            id: guide.id,
+            title: guide.title,
+            slug: guide.slug,
+            species: guide.species,
+            content: guide.sections,
+            createdAt: guide.createdAt
+          });
+        } else {
+          // Track species that couldn't generate guides (no database match)
+          skipped.push(speciesData.commonName || 'Unknown Species');
+        }
 
         // Small delay for UX
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       setGeneratedGuides(guides);
+      setSkippedSpecies(skipped);
       setProgress({ total: selectedSpecies.length, current: selectedSpecies.length, currentSpecies: 'Complete' });
 
     } catch (error) {
@@ -399,6 +397,40 @@ export function CareGuideGenerator() {
         </section>
       )}
 
+      {/* Skipped Species */}
+      {skippedSpecies.length > 0 && (
+        <section className="semantic-section">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Skipped Species ({skippedSpecies.length})
+          </h3>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+              </svg>
+              <div className="flex-1">
+                <h4 className="font-medium text-yellow-800 mb-2">
+                  No Database Match Found
+                </h4>
+                <p className="text-sm text-yellow-700 mb-3">
+                  These species were skipped because no matching species data was found in the database. Only species with real database matches can generate care guides.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {skippedSpecies.map((species, index) => (
+                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                      {species}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-yellow-600 mt-3">
+                  💡 Tip: Add these species to the species database to enable care guide generation.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Workflow Info */}
       <section className="semantic-section">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Workflow</h2>
@@ -421,7 +453,7 @@ export function CareGuideGenerator() {
             <span className="text-2xl">📋</span>
             <div>
               <div className="font-bold text-purple-600">3. Generate Guides</div>
-              <div className="text-gray-600">ProductID-care-guide.json</div>
+              <div className="text-gray-600">Real database matches only</div>
             </div>
           </div>
         </div>

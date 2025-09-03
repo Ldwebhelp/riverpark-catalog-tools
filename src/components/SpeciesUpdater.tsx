@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { getEnhancedSpecifications, getSpeciesFromDatabase } from '@/lib/speciesDatabase';
+import { getEnhancedSpecifications } from '@/lib/speciesDatabase';
 import { CatalogDatabase } from '@/lib/database';
 import { SpeciesData, GenerationStats } from '@/types/catalog';
 
@@ -77,25 +77,27 @@ export default function SpeciesUpdater() {
           }
         });
 
-        // Get enhanced specifications from database (includes new waterType)
+        // Get enhanced specifications from database (only real matches, no fallbacks)
         const enhancedSpecs = getEnhancedSpecifications({
           ...species,
           commonName: species.commonName,
           scientificName: species.scientificName
         });
 
-        // Update with enhanced specifications if not already set
-        Object.entries(enhancedSpecs).forEach(([field, value]) => {
-          if (field === 'waterType' && !updatedSpecifications.waterType) {
-            const oldValue = String(updatedSpecifications[field] || 'Not set');
-            updatedSpecifications[field] = value;
-            updates.push({
-              field,
-              oldValue,
-              newValue: String(value)
-            });
-          }
-        });
+        // Update with enhanced specifications if database match found
+        if (enhancedSpecs) {
+          Object.entries(enhancedSpecs).forEach(([field, value]) => {
+            if (field === 'waterType' && !updatedSpecifications.waterType) {
+              const oldValue = String(updatedSpecifications[field] || 'Not set');
+              updatedSpecifications[field] = value;
+              updates.push({
+                field,
+                oldValue,
+                newValue: String(value)
+              });
+            }
+          });
+        }
 
         const updatedSpecies: UpdatedSpecies = {
           ...species,
