@@ -19,6 +19,10 @@ export function CareGuideGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState<Record<string, boolean>>({});
+  const [batchDownloading, setBatchDownloading] = useState(false);
+  const [batchSize, setBatchSize] = useState(10);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,6 +118,7 @@ export function CareGuideGenerator() {
 
     setIsGenerating(true);
     setProgress({ total: selectedSpecies.length, current: 0, currentSpecies: '' });
+    setDownloadStatus({}); // Reset download status for new generation
 
     try {
       const guides: GeneratedGuide[] = [];
@@ -199,6 +204,95 @@ export function CareGuideGenerator() {
       downloadedAt: new Date().toISOString(),
       fileType: 'guide'
     });
+
+    // Update download status
+    setDownloadStatus(prev => ({
+      ...prev,
+      [guide.id]: true
+    }));
+  };
+
+  const downloadBatchJSON = async () => {
+    if (generatedGuides.length === 0) return;
+    
+    setBatchDownloading(true);
+    
+    // Get guides that haven't been downloaded yet
+    const undownloadedGuides = generatedGuides.filter(guide => !downloadStatus[guide.id]);
+    const guidesToDownload = undownloadedGuides.slice(0, batchSize);
+    
+    if (guidesToDownload.length === 0) {
+      alert('All care guides have already been downloaded!');
+      setBatchDownloading(false);
+      return;
+    }
+
+    setBatchProgress({ current: 0, total: guidesToDownload.length });
+
+    try {
+      for (let i = 0; i < guidesToDownload.length; i++) {
+        const guide = guidesToDownload[i];
+        setBatchProgress({ current: i + 1, total: guidesToDownload.length });
+
+        // Create JSON data with same format as individual download
+        const content = {
+          id: guide.id,
+          title: guide.title,
+          slug: guide.slug,
+          species: guide.species,
+          productId: guide.productId,
+          type: guide.type,
+          sections: guide.sections,
+          metadata: {
+            generatedAt: guide.createdAt,
+            generator: 'Riverpark Catalog Tools',
+            version: '1.0.0',
+            format: 'riverpark-catalyst-guide',
+            productId: guide.productId
+          }
+        };
+
+        const dataStr = JSON.stringify(content, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        
+        // Create and trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${guide.productId || guide.slug}-care-guide.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // Track download
+        if (sessionId) {
+          await CatalogDatabase.trackDownload({
+            sessionId,
+            fileName: link.download,
+            downloadedAt: new Date().toISOString(),
+            fileType: 'guide'
+          });
+        }
+
+        // Update download status
+        setDownloadStatus(prev => ({
+          ...prev,
+          [guide.id]: true
+        }));
+
+        // Small delay between downloads to avoid browser issues
+        if (i < guidesToDownload.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    } catch (error) {
+      console.error('Batch download failed:', error);
+      alert('Batch download failed. Please try again.');
+    } finally {
+      setBatchDownloading(false);
+      setBatchProgress({ current: 0, total: 0 });
+    }
   };
 
   const downloadAllGuides = () => {
@@ -357,12 +451,64 @@ export function CareGuideGenerator() {
         <section className="semantic-section">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Generated Care Guides</h2>
-            <button
-              onClick={downloadAllGuides}
-              className="btn-success text-sm"
-            >
-              Download All JSON ({generatedGuides.length})
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={downloadAllGuides}
+                className="btn-success text-sm"
+              >
+                Download All JSON ({generatedGuides.length})
+              </button>
+            </div>
+          </div>
+          
+          {/* Batch Download Controls */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <h4 className="font-medium text-blue-900">Batch Download</h4>
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm text-blue-700">Quantity:</label>
+                  <select
+                    value={batchSize}
+                    onChange={(e) => setBatchSize(Number(e.target.value))}
+                    className="border border-blue-300 rounded px-2 py-1 text-sm"
+                    disabled={batchDownloading}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                    <option value={20}>20</option>
+                    <option value={generatedGuides.length}>All ({generatedGuides.length})</option>
+                  </select>
+                </div>
+                <div className="text-sm text-blue-700">
+                  Downloaded: {Object.keys(downloadStatus).filter(id => downloadStatus[id]).length}/{generatedGuides.length}
+                </div>
+              </div>
+              
+              <button
+                onClick={downloadBatchJSON}
+                disabled={batchDownloading || generatedGuides.filter(g => !downloadStatus[g.id]).length === 0}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+              >
+                {batchDownloading ? `Downloading... (${batchProgress.current}/${batchProgress.total})` : `Download ${batchSize} JSON Files`}
+              </button>
+            </div>
+            
+            {batchDownloading && (
+              <div className="mt-3">
+                <div className="flex justify-between text-sm text-blue-600 mb-1">
+                  <span>Downloading care guides...</span>
+                  <span>{batchProgress.current}/{batchProgress.total}</span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -384,12 +530,21 @@ export function CareGuideGenerator() {
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => downloadGuide(guide)}
-                    className="btn-primary text-sm ml-4"
-                  >
-                    Download JSON
-                  </button>
+                  <div className="flex items-center space-x-2 ml-4">
+                    {downloadStatus[guide.id] && (
+                      <span className="text-green-600 text-sm">✓ Downloaded</span>
+                    )}
+                    <button
+                      onClick={() => downloadGuide(guide)}
+                      className={`text-sm px-3 py-1 rounded-lg font-medium transition-colors ${
+                        downloadStatus[guide.id] 
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                          : 'btn-primary'
+                      }`}
+                    >
+                      {downloadStatus[guide.id] ? 'Re-download' : 'Download JSON'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
