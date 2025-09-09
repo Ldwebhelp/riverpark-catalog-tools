@@ -250,14 +250,14 @@ export default function SpeciesAIGenerator() {
   const filteredProducts = getFilteredProducts();
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header */}
+    <div className="space-y-8">
+      {/* Controls */}
       <section className="semantic-section">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">AI Species Generator</h2>
-            <p className="text-gray-600 mt-2">
-              Automatically discover fish products and generate comprehensive species data using AI
+            <h2 className="text-xl font-semibold text-gray-900">System Controls</h2>
+            <p className="text-gray-600 mt-1">
+              Connect to services and manage AI species generation
             </p>
           </div>
           <div className="flex items-center space-x-3">

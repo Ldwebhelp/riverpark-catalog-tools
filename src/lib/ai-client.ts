@@ -63,7 +63,7 @@ export class AIClient {
   private timeout: number;
 
   constructor(options: { baseUrl?: string; timeout?: number } = {}) {
-    this.baseUrl = options.baseUrl || 'http://localhost:3002'; // Default to riverpark-catalyst-fresh
+    this.baseUrl = options.baseUrl || 'http://localhost:3000'; // Default to riverpark-catalyst-fresh port 3000
     this.timeout = options.timeout || 30000; // 30 second timeout
   }
 
