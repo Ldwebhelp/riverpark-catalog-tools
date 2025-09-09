@@ -1,49 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BigCommerceProductReal } from '@/lib/bigcommerce-client';
+import { Database, BigCommerceProduct, BigCommerceCategory } from '@/lib/database';
 
-interface Category {
-  id: number;
-  parent_id: number;
-  name: string;
-  description: string;
-  is_visible: boolean;
-  sort_order: number;
-  children?: Category[];
-}
-
-interface ProductsResponse {
-  data: BigCommerceProductReal[];
-  meta: {
-    pagination: {
-      total: number;
-      count: number;
-      per_page: number;
-      current_page: number;
-      total_pages: number;
-      links: {
-        previous?: string;
-        current: string;
-        next?: string;
-      };
-    };
-  };
-  categoryTree?: Category[];
-  error?: string;
-}
-
-interface CategoriesResponse {
-  data: Category[];
-  meta: {
-    total_categories: number;
-  };
-  error?: string;
-}
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<BigCommerceProductReal[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<BigCommerceProduct[]>([]);
+  const [categories, setCategories] = useState<BigCommerceCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -66,14 +29,9 @@ export default function ProductsPage() {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('/api/bigcommerce/category-tree');
-      const data: CategoriesResponse = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load categories');
-      }
-      
-      setCategories(data.data);
+      const data = await Database.getBigCommerceCategories();
+      setCategories(data);
+      console.log('Categories loaded from database:', data.length);
     } catch (err) {
       console.error('Error loading categories:', err);
       setError(err instanceof Error ? err.message : 'Failed to load categories');
@@ -85,32 +43,35 @@ export default function ProductsPage() {
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: pageSize.toString(),
-        includeSubcategories: includeSubcategories.toString(),
-      });
-
+      let allProducts = await Database.getBigCommerceProducts();
+      
+      // Apply category filter
       if (selectedCategory) {
-        params.append('categoryId', selectedCategory.toString());
+        allProducts = allProducts.filter(product => 
+          product.categories.includes(selectedCategory)
+        );
       }
-
+      
+      // Apply search filter
       if (searchKeyword.trim()) {
-        params.append('keyword', searchKeyword.trim());
+        const searchTerm = searchKeyword.trim().toLowerCase();
+        allProducts = allProducts.filter(product => 
+          product.name.toLowerCase().includes(searchTerm) ||
+          product.description.toLowerCase().includes(searchTerm) ||
+          product.sku.toLowerCase().includes(searchTerm)
+        );
       }
-
-      params.append('isVisible', 'true'); // Only show visible products
-
-      const response = await fetch(`/api/bigcommerce/products?${params.toString()}`);
-      const data: ProductsResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load products');
-      }
-
-      setProducts(data.data);
-      setTotalPages(data.meta.pagination.total_pages);
-      setTotalProducts(data.meta.pagination.total);
+      
+      // Apply pagination (simulate)
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedProducts = allProducts.slice(startIndex, endIndex);
+      
+      setProducts(paginatedProducts);
+      setTotalProducts(allProducts.length);
+      setTotalPages(Math.ceil(allProducts.length / pageSize));
+      
+      console.log('Products loaded from database:', paginatedProducts.length, 'of', allProducts.length);
     } catch (err) {
       console.error('Error loading products:', err);
       setError(err instanceof Error ? err.message : 'Failed to load products');
@@ -120,7 +81,7 @@ export default function ProductsPage() {
     }
   };
 
-  const renderCategoryTree = (cats: Category[], level: number = 0) => {
+  const renderCategoryTree = (cats: BigCommerceCategory[], level: number = 0) => {
     return cats.map(category => (
       <div key={category.id}>
         <option 
@@ -157,7 +118,7 @@ export default function ProductsPage() {
   };
 
   const getCategoryName = (categoryId: number): string => {
-    const findCategory = (cats: Category[]): string | null => {
+    const findCategory = (cats: BigCommerceCategory[]): string | null => {
       for (const cat of cats) {
         if (cat.id === categoryId) return cat.name;
         if (cat.children) {
@@ -346,9 +307,9 @@ export default function ProductsPage() {
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        {product.primary_image?.url_thumbnail && (
+                        {product.primary_image?.url && (
                           <img
-                            src={product.primary_image.url_thumbnail}
+                            src={product.primary_image.url}
                             alt={product.name}
                             className="w-12 h-12 rounded-lg object-cover mr-4"
                           />

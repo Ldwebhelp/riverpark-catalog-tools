@@ -1,28 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createBigCommerceClient } from '@/lib/bigcommerce-client';
+import { NextResponse } from 'next/server';
+import { Database } from '@/lib/database';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const client = createBigCommerceClient();
+    console.log('BigCommerce categories request initiated - using JSON database');
+
+    const categories = await Database.getBigCommerceCategories();
     
-    if (!client) {
-      return NextResponse.json(
-        { error: 'BigCommerce API credentials not configured' }, 
-        { status: 500 }
-      );
-    }
-
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '250');
-
-    const categories = await client.getCategories(page, limit);
-
-    return NextResponse.json(categories);
+    // Convert to expected format for compatibility
+    const formattedCategories = {
+      data: categories,
+      meta: {
+        pagination: {
+          total: categories.length,
+          count: categories.length,
+          per_page: categories.length,
+          current_page: 1,
+          total_pages: 1
+        }
+      }
+    };
+    
+    console.log('BigCommerce categories response:', categories.length, 'categories found');
+    return NextResponse.json(formattedCategories);
   } catch (error) {
-    console.error('Error fetching BigCommerce categories:', error);
+    console.error('Error fetching BigCommerce categories from database:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch categories from BigCommerce' }, 
+      { error: 'Failed to fetch categories from BigCommerce database' }, 
       { status: 500 }
     );
   }
