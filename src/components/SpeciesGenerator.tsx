@@ -18,6 +18,13 @@ export default function SpeciesGenerator() {
   const [batchSize, setBatchSize] = useState(10);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showFileManager, setShowFileManager] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [selectedSpecies, setSelectedSpecies] = useState<SpeciesData | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editedJson, setEditedJson] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,6 +183,52 @@ export default function SpeciesGenerator() {
       return acc;
     }, {} as Record<string, boolean>);
     setDownloadStatus(allDownloaded);
+  };
+
+  const openEditor = (species: SpeciesData) => {
+    setSelectedSpecies(species);
+    setEditedJson(JSON.stringify(species, null, 2));
+    setShowEditor(true);
+  };
+
+  const closeEditor = () => {
+    setSelectedSpecies(null);
+    setEditedJson('');
+    setShowEditor(false);
+  };
+
+  const saveEditedSpecies = async () => {
+    try {
+      const parsedData = JSON.parse(editedJson) as SpeciesData;
+      parsedData.updatedAt = new Date().toISOString();
+      
+      // Update in generatedData
+      setGeneratedData(prev => prev.map(species => 
+        species.id === parsedData.id ? parsedData : species
+      ));
+      
+      closeEditor();
+      alert('Species data updated successfully!');
+    } catch (error) {
+      alert('Invalid JSON format. Please check your edits.');
+    }
+  };
+
+  // Filter and paginate data
+  const filteredData = generatedData.filter(species => 
+    (species.commonName && species.commonName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    species.productId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (species.scientificName && species.scientificName.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   const downloadBatchJSON = async () => {
@@ -429,70 +482,307 @@ export default function SpeciesGenerator() {
 
           {/* Generated Species */}
           <section className="semantic-section">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Generated Species Data</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Generated Species Data ({filteredData.length})</h3>
+              <div className="flex items-center space-x-4">
+                {/* Search */}
+                <input
+                  type="text"
+                  placeholder="Search species..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {/* View Mode Toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'table' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Table
+                  </button>
+                </div>
+              </div>
+            </div>
             
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {generatedData.map((species) => (
-                <div key={species.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h4 className="font-medium text-gray-900">{species.commonName}</h4>
-                        {downloadStatus[species.id] ? (
-                          <span className="status-badge-success">
-                            ✓ Downloaded
-                          </span>
-                        ) : (
-                          <span className="status-badge-pending">
-                            Pending
-                          </span>
+            {viewMode === 'list' ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {paginatedData.map((species) => (
+                  <div key={species.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <h4 className="font-medium text-gray-900">{species.commonName}</h4>
+                          {downloadStatus[species.id] ? (
+                            <span className="status-badge-success">
+                              ✓ Downloaded
+                            </span>
+                          ) : (
+                            <span className="status-badge-pending">
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                        {species.scientificName && (
+                          <div className="text-sm text-gray-600 italic mt-1">{species.scientificName}</div>
                         )}
+                        <div className="text-xs text-gray-500 mt-1">Product ID: {species.productId}</div>
                       </div>
-                      {species.scientificName && (
-                        <div className="text-sm text-gray-600 italic mt-1">{species.scientificName}</div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-1">Product ID: {species.productId}</div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => openEditor(species)}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          View/Edit JSON
+                        </button>
+                        <button
+                          onClick={() => downloadJSON(species)}
+                          className="btn-primary text-sm"
+                        >
+                          Download JSON
+                        </button>
+                      </div>
                     </div>
                     
-                    <button
-                      onClick={() => downloadJSON(species)}
-                      className="btn-primary text-sm"
-                    >
-                      Download JSON
-                    </button>
-                  </div>
-                  
-                  {/* Preview of enhanced specifications */}
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <div className="text-xs text-gray-600 mb-2">Enhanced Specifications Preview:</div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                      {species.specifications.minTankSize && (
-                        <div><span className="font-medium">Tank:</span> {species.specifications.minTankSize}</div>
-                      )}
-                      {species.specifications.temperatureRange && (
-                        <div><span className="font-medium">Temp:</span> {species.specifications.temperatureRange}</div>
-                      )}
-                      {species.specifications.diet && (
-                        <div><span className="font-medium">Diet:</span> {species.specifications.diet}</div>
-                      )}
-                      {species.specifications.careLevel && (
-                        <div><span className="font-medium">Care:</span> {species.specifications.careLevel}</div>
-                      )}
-                      {species.specifications.temperament && (
-                        <div><span className="font-medium">Temperament:</span> {species.specifications.temperament}</div>
-                      )}
-                      {species.specifications.family && (
-                        <div><span className="font-medium">Family:</span> {species.specifications.family}</div>
-                      )}
-                      {species.specifications.waterType && (
-                        <div><span className="font-medium">Water Type:</span> {species.specifications.waterType}</div>
-                      )}
+                    {/* Preview of enhanced specifications */}
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="text-xs text-gray-600 mb-2">Enhanced Specifications Preview:</div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                        {species.specifications.minTankSize && (
+                          <div><span className="font-medium">Tank:</span> {species.specifications.minTankSize}</div>
+                        )}
+                        {species.specifications.temperatureRange && (
+                          <div><span className="font-medium">Temp:</span> {species.specifications.temperatureRange}</div>
+                        )}
+                        {species.specifications.diet && (
+                          <div><span className="font-medium">Diet:</span> {species.specifications.diet}</div>
+                        )}
+                        {species.specifications.careLevel && (
+                          <div><span className="font-medium">Care:</span> {species.specifications.careLevel}</div>
+                        )}
+                        {species.specifications.temperament && (
+                          <div><span className="font-medium">Temperament:</span> {species.specifications.temperament}</div>
+                        )}
+                        {species.specifications.family && (
+                          <div><span className="font-medium">Family:</span> {species.specifications.family}</div>
+                        )}
+                        {species.specifications.waterType && (
+                          <div><span className="font-medium">Water Type:</span> {species.specifications.waterType}</div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Species
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Product ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tank Size
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Care Level
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedData.map((species) => (
+                      <tr 
+                        key={species.id} 
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => openEditor(species)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{species.commonName}</div>
+                            {species.scientificName && (
+                              <div className="text-sm text-gray-500 italic">{species.scientificName}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {species.productId}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {species.specifications.minTankSize || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {species.specifications.careLevel || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {downloadStatus[species.id] ? (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                              ✓ Downloaded
+                            </span>
+                          ) : (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditor(species);
+                              }}
+                              className="text-indigo-600 hover:text-indigo-900"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadJSON(species);
+                              }}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6">
+                <div className="text-sm text-gray-700">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} results
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                        page === currentPage
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
+        </div>
+      )}
+
+      {/* JSON Editor Modal */}
+      {showEditor && selectedSpecies && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Edit JSON Data - {selectedSpecies.commonName}
+              </h3>
+              <button
+                onClick={closeEditor}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    JSON Data (Editable)
+                  </label>
+                  <div className="text-xs text-gray-500">
+                    Product ID: {selectedSpecies.productId}
+                  </div>
+                </div>
+                <textarea
+                  value={editedJson}
+                  onChange={(e) => setEditedJson(e.target.value)}
+                  className="w-full h-96 p-4 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="JSON data will appear here..."
+                />
+              </div>
+              
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={closeEditor}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    try {
+                      JSON.parse(editedJson);
+                      const formatted = JSON.stringify(JSON.parse(editedJson), null, 2);
+                      setEditedJson(formatted);
+                    } catch (error) {
+                      alert('Invalid JSON format');
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200"
+                >
+                  Format JSON
+                </button>
+                <button
+                  onClick={saveEditedSpecies}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
