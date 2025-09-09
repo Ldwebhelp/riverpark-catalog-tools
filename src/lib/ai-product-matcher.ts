@@ -112,7 +112,7 @@ export class AIProductMatcher {
 
   private static async getFiltrationRecommendations(tankSizeL: number, fishType: string): Promise<ProductRecommendation[]> {
     const allProducts = await Database.getBigCommerceProducts();
-    const filterProducts = allProducts.filter(p => p.categories.some(cat => [30, 31, 34].includes(cat)));
+    const filterProducts = allProducts.filter(p => p.categories.some(cat => [212, 66, 98].includes(cat))); // Filtration, External Filters, Internal Filters
     const suitableFilters = filterProducts.filter(p => this.isProductSuitableForTankSize(p, tankSizeL));
     
     const recommendations: ProductRecommendation[] = [];
@@ -140,7 +140,7 @@ export class AIProductMatcher {
 
   private static async getSubstrateRecommendations(fishType: string, _phRange: string): Promise<ProductRecommendation[]> {
     const allProducts = await Database.getBigCommerceProducts();
-    const substrateProducts = allProducts.filter(p => p.categories.some(cat => [37, 38].includes(cat)));
+    const substrateProducts = allProducts.filter(p => p.categories.some(cat => [222, 229].includes(cat))); // Gravel And Sand, Soil and Substrate
     const recommendations: ProductRecommendation[] = [];
 
     substrateProducts.slice(0, 2).forEach((product, index) => {
@@ -179,7 +179,7 @@ export class AIProductMatcher {
 
   private static async getDecorationRecommendations(fishType: string, tankSizeL: number): Promise<ProductRecommendation[]> {
     const allProducts = await Database.getBigCommerceProducts();
-    const decorationProducts = allProducts.filter(p => p.categories.some(cat => [39, 40].includes(cat)));
+    const decorationProducts = allProducts.filter(p => p.categories.some(cat => [194, 189, 223].includes(cat))); // Aquarium Decor, Ornaments, Rock And Wood
     const recommendations: ProductRecommendation[] = [];
 
     decorationProducts.forEach((product, index) => {
@@ -215,7 +215,7 @@ export class AIProductMatcher {
 
   private static async getFoodRecommendations(fishType: string, diet: string): Promise<ProductRecommendation[]> {
     const allProducts = await Database.getBigCommerceProducts();
-    const foodProducts = allProducts.filter(p => p.categories.some(cat => [41, 42, 43].includes(cat)));
+    const foodProducts = allProducts.filter(p => p.categories.some(cat => [91, 220, 224, 225].includes(cat))); // Freshwater Fish Food, Tropical Fish Food, Frozen Food, Live Food
     const recommendations: ProductRecommendation[] = [];
 
     // Filter foods by fish type based on product name and description
@@ -244,7 +244,7 @@ export class AIProductMatcher {
 
   private static async getWaterTreatmentRecommendations(fishType: string, _phRange: string): Promise<ProductRecommendation[]> {
     const allProducts = await Database.getBigCommerceProducts();
-    const treatmentProducts = allProducts.filter(p => p.categories.some(cat => [32, 33].includes(cat)));
+    const treatmentProducts = allProducts.filter(p => p.categories.some(cat => [206, 207, 208].includes(cat))); // Aquarium Additives, Supplements & Conditioners, Medications
     const recommendations: ProductRecommendation[] = [];
 
     treatmentProducts.forEach((product, _index) => {
@@ -280,7 +280,7 @@ export class AIProductMatcher {
 
   private static async getHeatingRecommendations(tankSizeL: number, temperatureRange: string): Promise<ProductRecommendation[]> {
     const allProducts = await Database.getBigCommerceProducts();
-    const heatingProducts = allProducts.filter(p => p.categories.some(cat => [35, 36].includes(cat)));
+    const heatingProducts = allProducts.filter(p => p.categories.some(cat => [65].includes(cat))); // Aquarium Heaters
     const suitableHeaters = heatingProducts.filter(p => this.isProductSuitableForTankSize(p, tankSizeL));
     
     const matchingHeaters = heatingProducts.filter(product => 
@@ -310,7 +310,7 @@ export class AIProductMatcher {
 
   private static async getTestingRecommendations(_fishType: string): Promise<ProductRecommendation[]> {
     const allProducts = await Database.getBigCommerceProducts();
-    const testingProducts = allProducts.filter(p => p.categories.some(cat => [44, 45].includes(cat)));
+    const testingProducts = allProducts.filter(p => p.categories.some(cat => [68].includes(cat))); // Freshwater Test Kits
     
     return testingProducts.slice(0, 1).map(product => ({
       id: product.id.toString(),
