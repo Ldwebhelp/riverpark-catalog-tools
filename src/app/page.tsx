@@ -38,7 +38,7 @@ export default function Home() {
           </section>
 
           {/* Tools Grid */}
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             {/* Species Tool */}
             <Link 
               href="/species" 
@@ -101,6 +101,39 @@ export default function Home() {
                 <div className="flex items-center">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                   Bulk generation and download management
+                </div>
+              </div>
+            </Link>
+
+            {/* Products Tool */}
+            <Link 
+              href="/products" 
+              className="semantic-card group hover:border-purple-300"
+            >
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="bg-purple-100 p-3 rounded-lg group-hover:bg-purple-200 transition-colors">
+                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 group-hover:text-purple-600">BigCommerce Products</h3>
+                  <p className="text-gray-600">Browse live product catalog with real data</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Real-time BigCommerce API integration
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Category-based filtering with subcategories
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Pagination and search functionality
                 </div>
               </div>
             </Link>

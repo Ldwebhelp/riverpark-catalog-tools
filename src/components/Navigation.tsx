@@ -10,6 +10,7 @@ export function Navigation() {
     { href: '/', label: 'Dashboard', icon: '🏠' },
     { href: '/species', label: 'Species Generator', icon: '🐠' },
     { href: '/guides', label: 'Care Guides', icon: '📖' },
+    { href: '/products', label: 'Products', icon: '📦' },
   ];
 
   return (

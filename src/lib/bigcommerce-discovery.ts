@@ -13,7 +13,7 @@ export class BigCommerceDiscovery {
    */
   private static async fetchBigCommerceProducts(): Promise<BigCommerceProduct[]> {
     // In production, this would be a real BigCommerce API call
-    // For now, return mock data representing typical aquarium products
+    // For now, return comprehensive mock data representing typical aquarium products
     return [
       // Filtration
       {
