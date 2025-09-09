@@ -32,8 +32,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       data: products,
       meta: {
-        total: products.length,
-        count: products.length,
+        pagination: {
+          total: products.length,
+          count: products.length,
+          per_page: products.length,
+          current_page: 1,
+          total_pages: 1,
+          links: {
+            current: 'page=1'
+          }
+        },
         api_type: 'json_database'
       }
     });
