@@ -177,18 +177,27 @@ export class BigCommerceClient {
       headers['X-Auth-Client'] = this.config.clientId;
     }
 
+    console.log(`Making BigCommerce API request to: ${url}`);
+    console.log('Request headers:', { ...headers, 'X-Auth-Token': '[REDACTED]' });
+
     try {
       const response = await fetch(url, {
         ...options,
         headers,
       });
 
+      console.log(`BigCommerce API response status: ${response.status} for ${endpoint}`);
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`BigCommerce API Error Response:`, errorText);
         throw new Error(`BigCommerce API Error: ${response.status} - ${errorText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log(`BigCommerce API success for ${endpoint}:`, typeof data === 'object' ? `${Object.keys(data).length} keys` : data);
+      
+      return data;
     } catch (error) {
       console.error(`BigCommerce API request failed for ${endpoint}:`, error);
       throw error;

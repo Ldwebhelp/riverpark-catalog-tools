@@ -6,11 +6,14 @@ export async function GET(request: NextRequest) {
     const client = createBigCommerceClient();
     
     if (!client) {
+      console.error('BigCommerce client not created - missing credentials');
       return NextResponse.json(
-        { error: 'BigCommerce API credentials not configured' }, 
+        { error: 'BigCommerce API credentials not configured. Please check BIGCOMMERCE_ACCESS_TOKEN and BIGCOMMERCE_API_URL environment variables.' }, 
         { status: 500 }
       );
     }
+
+    console.log('BigCommerce products API request initiated');
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
