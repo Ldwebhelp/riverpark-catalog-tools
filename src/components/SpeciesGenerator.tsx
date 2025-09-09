@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { getEnhancedSpecifications } from '@/lib/speciesDatabase';
 import { CatalogDatabase } from '@/lib/database';
 import { SpeciesData, GenerationStats } from '@/types/catalog';
+import SpeciesFileManager from './SpeciesFileManager';
 
 export default function SpeciesGenerator() {
   const [file, setFile] = useState<File | null>(null);
@@ -16,6 +17,7 @@ export default function SpeciesGenerator() {
   const [batchDownloading, setBatchDownloading] = useState(false);
   const [batchSize, setBatchSize] = useState(10);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [showFileManager, setShowFileManager] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,11 +244,23 @@ export default function SpeciesGenerator() {
     }
   };
 
+  const handleFileManagerUpdate = () => {
+    // Trigger refresh if needed in future
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* File Upload Section */}
       <section className="semantic-section">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Species Data Generator</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-gray-900">Species Data Generator</h2>
+          <button
+            onClick={() => setShowFileManager(!showFileManager)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            {showFileManager ? 'Hide' : 'Show'} File Manager
+          </button>
+        </div>
         <p className="text-gray-600 mb-6">
           Upload an Excel file containing species data to generate enhanced JSON files with comprehensive care specifications.
         </p>
@@ -299,6 +313,13 @@ export default function SpeciesGenerator() {
           )}
         </div>
       </section>
+
+      {/* File Manager Section */}
+      {showFileManager && (
+        <SpeciesFileManager 
+          onUpdate={handleFileManagerUpdate}
+        />
+      )}
 
       {/* Processing Status */}
       {processing && (

@@ -1,6 +1,17 @@
 // Simple database layer for development - can be extended for production
 import { SpeciesData, GuideData, SessionData, DownloadHistory } from '@/types/catalog';
 
+export interface SpeciesFileInfo {
+  id: string;
+  productId: string;
+  commonName: string;
+  scientificName?: string;
+  fileName: string;
+  createdAt: string;
+  updatedAt: string;
+  fileSize: number;
+}
+
 export class CatalogDatabase {
   // Session Management
   static async saveSession(sessionData: Omit<SessionData, 'id'>): Promise<string> {
@@ -236,6 +247,78 @@ export class CatalogDatabase {
       totalSpeciesGenerated: 0,
       totalGuidesGenerated: 0,
       totalDownloads: 0
+    };
+  }
+
+  // Enhanced File Management Methods
+  static async getAllSpeciesFiles(): Promise<SpeciesFileInfo[]> {
+    if (typeof window !== 'undefined') {
+      const files: SpeciesFileInfo[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('species:')) {
+          const data = localStorage.getItem(key);
+          if (data) {
+            const species: SpeciesData = JSON.parse(data);
+            const fileName = `${species.productId}-species.json`;
+            const jsonString = JSON.stringify(species, null, 2);
+            files.push({
+              id: species.id,
+              productId: species.productId,
+              commonName: species.commonName || 'Unknown Species',
+              scientificName: species.scientificName,
+              fileName,
+              createdAt: species.createdAt,
+              updatedAt: species.updatedAt,
+              fileSize: new Blob([jsonString]).size
+            });
+          }
+        }
+      }
+      return files.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    return [];
+  }
+
+  static async deleteSpeciesFiles(productIds: string[]): Promise<void> {
+    if (typeof window !== 'undefined') {
+      productIds.forEach(productId => {
+        localStorage.removeItem(`species:${productId}`);
+      });
+    }
+  }
+
+  static async updateSpecies(species: SpeciesData): Promise<void> {
+    const updatedSpecies = {
+      ...species,
+      updatedAt: new Date().toISOString()
+    };
+    await this.saveSpecies(updatedSpecies);
+  }
+
+  static async copyFilesToDestination(productIds: string[], destinationPath: string): Promise<{success: boolean, copiedFiles: string[], errors: string[]}> {
+    // This will be implemented with Node.js fs operations in production
+    // For now, return mock success for UI development
+    console.log(`Would copy files for products ${productIds.join(', ')} to ${destinationPath}`);
+    
+    const copiedFiles: string[] = [];
+    const errors: string[] = [];
+    
+    if (typeof window !== 'undefined') {
+      for (const productId of productIds) {
+        const speciesData = localStorage.getItem(`species:${productId}`);
+        if (speciesData) {
+          copiedFiles.push(`${productId}-species.json`);
+        } else {
+          errors.push(`Species data not found for product ID: ${productId}`);
+        }
+      }
+    }
+    
+    return {
+      success: errors.length === 0,
+      copiedFiles,
+      errors
     };
   }
 }
