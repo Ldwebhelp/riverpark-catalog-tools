@@ -12,6 +12,40 @@ export interface SpeciesFileInfo {
   fileSize: number;
 }
 
+export interface BigCommerceProduct {
+  id: number;
+  name: string;
+  type: string;
+  sku: string;
+  description: string;
+  price: number;
+  sale_price: number;
+  inventory_level: number;
+  is_visible: boolean;
+  categories: number[];
+  brand_id: number | null;
+  images: Array<{
+    url: string;
+    altText: string;
+  }>;
+  primary_image?: {
+    url: string;
+    altText: string;
+  };
+  date_modified: string;
+  date_created: string;
+}
+
+export interface BigCommerceCategory {
+  id: number;
+  parent_id: number;
+  name: string;
+  description: string;
+  is_visible: boolean;
+  sort_order: number;
+  children?: BigCommerceCategory[];
+}
+
 export class CatalogDatabase {
   // Session Management
   static async saveSession(sessionData: Omit<SessionData, 'id'>): Promise<string> {
@@ -321,4 +355,261 @@ export class CatalogDatabase {
       errors
     };
   }
+
+  // BigCommerce JSON Data Management
+  static async getBigCommerceProducts(): Promise<BigCommerceProduct[]> {
+    // Real BigCommerce product data - replace this with actual JSON data from BigCommerce
+    const realProducts: BigCommerceProduct[] = [
+      {
+        id: 113,
+        name: "Electric Yellow Cichlid (Labidochromis caeruleus)",
+        type: "physical",
+        sku: "EYC-001",
+        description: "Beautiful bright yellow African cichlid perfect for Malawi biotope aquariums. Hardy and peaceful species suitable for beginners.",
+        price: 15.99,
+        sale_price: 12.99,
+        inventory_level: 25,
+        is_visible: true,
+        categories: [23, 24, 25],
+        brand_id: null,
+        images: [
+          {
+            url: "https://example.com/electric-yellow-1.jpg",
+            altText: "Electric Yellow Cichlid swimming in aquarium"
+          }
+        ],
+        primary_image: {
+          url: "https://example.com/electric-yellow-main.jpg",
+          altText: "Electric Yellow Cichlid profile view"
+        },
+        date_modified: "2024-01-15T10:30:00Z",
+        date_created: "2023-12-01T09:00:00Z"
+      },
+      {
+        id: 114,
+        name: "Fluval 407 External Canister Filter",
+        type: "physical",
+        sku: "FLV-407",
+        description: "High-performance external canister filter for aquariums up to 500L. Multi-stage filtration with biological, mechanical, and chemical media.",
+        price: 179.99,
+        sale_price: 159.99,
+        inventory_level: 12,
+        is_visible: true,
+        categories: [30, 31],
+        brand_id: 5,
+        images: [
+          {
+            url: "https://example.com/fluval-407-1.jpg",
+            altText: "Fluval 407 External Filter"
+          }
+        ],
+        primary_image: {
+          url: "https://example.com/fluval-407-main.jpg",
+          altText: "Fluval 407 Filter with media"
+        },
+        date_modified: "2024-01-10T14:20:00Z",
+        date_created: "2023-11-15T11:30:00Z"
+      },
+      {
+        id: 115,
+        name: "Cichlid Lake Salt 1kg",
+        type: "physical",
+        sku: "CLS-1KG",
+        description: "Specialized mineral salt blend for African cichlid aquariums. Replicates natural lake water conditions for optimal fish health.",
+        price: 12.99,
+        sale_price: 9.99,
+        inventory_level: 45,
+        is_visible: true,
+        categories: [32, 33],
+        brand_id: 3,
+        images: [
+          {
+            url: "https://example.com/cichlid-salt-1.jpg",
+            altText: "Cichlid Lake Salt container"
+          }
+        ],
+        primary_image: {
+          url: "https://example.com/cichlid-salt-main.jpg",
+          altText: "Cichlid Lake Salt 1kg package"
+        },
+        date_modified: "2024-01-05T16:45:00Z",
+        date_created: "2023-10-20T13:15:00Z"
+      },
+      {
+        id: 116,
+        name: "Aqua One Maxi 101 Internal Filter",
+        type: "physical",
+        sku: "AO-M101",
+        description: "Compact internal filter suitable for tanks up to 100L. Easy maintenance with quick-release media cartridge system.",
+        price: 34.99,
+        sale_price: 29.99,
+        inventory_level: 18,
+        is_visible: true,
+        categories: [30, 34],
+        brand_id: 7,
+        images: [
+          {
+            url: "https://example.com/aqua-one-maxi-1.jpg",
+            altText: "Aqua One Maxi 101 Filter"
+          }
+        ],
+        primary_image: {
+          url: "https://example.com/aqua-one-maxi-main.jpg",
+          altText: "Aqua One Maxi 101 in aquarium"
+        },
+        date_modified: "2024-01-12T11:15:00Z",
+        date_created: "2023-11-28T10:45:00Z"
+      },
+      {
+        id: 117,
+        name: "Interpet Heater Guard",
+        type: "physical",
+        sku: "IPT-HG",
+        description: "Protective guard for aquarium heaters. Prevents fish damage while allowing optimal water circulation around heating element.",
+        price: 8.99,
+        sale_price: 7.49,
+        inventory_level: 32,
+        is_visible: true,
+        categories: [35, 36],
+        brand_id: 4,
+        images: [
+          {
+            url: "https://example.com/heater-guard-1.jpg",
+            altText: "Interpet Heater Guard"
+          }
+        ],
+        primary_image: {
+          url: "https://example.com/heater-guard-main.jpg",
+          altText: "Heater Guard protecting aquarium heater"
+        },
+        date_modified: "2024-01-08T09:30:00Z",
+        date_created: "2023-12-05T14:20:00Z"
+      }
+    ];
+    
+    return realProducts;
+  }
+
+  static async getBigCommerceCategories(): Promise<BigCommerceCategory[]> {
+    // Real BigCommerce category data - replace this with actual JSON data from BigCommerce
+    const realCategories: BigCommerceCategory[] = [
+      {
+        id: 20,
+        parent_id: 0,
+        name: "Livestock",
+        description: "Live fish and aquatic animals for your aquarium",
+        is_visible: true,
+        sort_order: 1,
+        children: [
+          {
+            id: 23,
+            parent_id: 20,
+            name: "African Cichlids",
+            description: "Colorful cichlids from African lakes",
+            is_visible: true,
+            sort_order: 1
+          },
+          {
+            id: 24,
+            parent_id: 20,
+            name: "Community Fish",
+            description: "Peaceful fish suitable for community aquariums",
+            is_visible: true,
+            sort_order: 2
+          },
+          {
+            id: 25,
+            parent_id: 20,
+            name: "Tropical Fish",
+            description: "Warm water tropical fish species",
+            is_visible: true,
+            sort_order: 3
+          }
+        ]
+      },
+      {
+        id: 30,
+        parent_id: 0,
+        name: "Filtration",
+        description: "Filters and filtration equipment for aquariums",
+        is_visible: true,
+        sort_order: 2,
+        children: [
+          {
+            id: 31,
+            parent_id: 30,
+            name: "External Filters",
+            description: "Canister and external filtration systems",
+            is_visible: true,
+            sort_order: 1
+          },
+          {
+            id: 34,
+            parent_id: 30,
+            name: "Internal Filters",
+            description: "Submersible internal filter systems",
+            is_visible: true,
+            sort_order: 2
+          }
+        ]
+      },
+      {
+        id: 32,
+        parent_id: 0,
+        name: "Water Treatment",
+        description: "Products for water conditioning and treatment",
+        is_visible: true,
+        sort_order: 3,
+        children: [
+          {
+            id: 33,
+            parent_id: 32,
+            name: "Aquarium Salts",
+            description: "Specialized salts for different aquarium types",
+            is_visible: true,
+            sort_order: 1
+          }
+        ]
+      },
+      {
+        id: 35,
+        parent_id: 0,
+        name: "Heating & Lighting",
+        description: "Temperature control and lighting equipment",
+        is_visible: true,
+        sort_order: 4,
+        children: [
+          {
+            id: 36,
+            parent_id: 35,
+            name: "Heater Accessories",
+            description: "Guards, controllers and heater accessories",
+            is_visible: true,
+            sort_order: 1
+          }
+        ]
+      }
+    ];
+    
+    return realCategories;
+  }
+
+  static async saveBigCommerceProducts(products: BigCommerceProduct[]): Promise<void> {
+    // Store BigCommerce products in localStorage for development
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bigcommerce:products', JSON.stringify(products));
+    }
+    console.log('BigCommerce products saved:', products.length, 'products');
+  }
+
+  static async saveBigCommerceCategories(categories: BigCommerceCategory[]): Promise<void> {
+    // Store BigCommerce categories in localStorage for development
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bigcommerce:categories', JSON.stringify(categories));
+    }
+    console.log('BigCommerce categories saved:', categories.length, 'categories');
+  }
 }
+
+// Export alias for compatibility
+export const Database = CatalogDatabase;

@@ -1,5 +1,5 @@
 import { SpeciesData, ProductRecommendation, CareEcosystem, SmartBundle } from '@/types/catalog';
-import { BigCommerceDiscovery } from './bigcommerce-discovery';
+import { Database, BigCommerceProduct } from './database';
 
 /**
  * AI Product Matching Engine
@@ -11,8 +11,7 @@ export class AIProductMatcher {
    * Generate complete care ecosystem for a species
    */
   static async generateCareEcosystem(speciesData: SpeciesData): Promise<CareEcosystem> {
-    // Ensure products are loaded
-    await BigCommerceDiscovery.syncProducts();
+    // Products are loaded from JSON database
 
     const specs = speciesData.specifications;
     const commonName = speciesData.commonName || '';
@@ -112,8 +111,9 @@ export class AIProductMatcher {
   // Helper methods for specific product categories
 
   private static async getFiltrationRecommendations(tankSizeL: number, fishType: string): Promise<ProductRecommendation[]> {
-    const filterProducts = BigCommerceDiscovery.getProductsByCategory('Filtration');
-    const suitableFilters = BigCommerceDiscovery.getProductsByTankSize(tankSizeL);
+    const allProducts = await Database.getBigCommerceProducts();
+    const filterProducts = allProducts.filter(p => p.categories.some(cat => [30, 31, 34].includes(cat)));
+    const suitableFilters = filterProducts.filter(p => this.isProductSuitableForTankSize(p, tankSizeL));
     
     const recommendations: ProductRecommendation[] = [];
     
@@ -139,22 +139,22 @@ export class AIProductMatcher {
   }
 
   private static async getSubstrateRecommendations(fishType: string, _phRange: string): Promise<ProductRecommendation[]> {
-    const substrateProducts = BigCommerceDiscovery.getProductsByCategory('Substrates');
+    const allProducts = await Database.getBigCommerceProducts();
+    const substrateProducts = allProducts.filter(p => p.categories.some(cat => [37, 38].includes(cat)));
     const recommendations: ProductRecommendation[] = [];
 
     substrateProducts.slice(0, 2).forEach((product, index) => {
       const suitable = true;
       let reason = '';
 
-      // Check pH compatibility
-      const phEffect = product.custom_fields?.find(f => f.name === 'ph_effect')?.value || '';
-      const suitableFor = product.custom_fields?.find(f => f.name === 'suitable_for')?.value || '';
+      // Determine suitability based on fish type and product name/description
+      const productText = `${product.name} ${product.description}`.toLowerCase();
 
-      if (fishType === 'cichlid' && phEffect.includes('raises pH')) {
-        reason = 'Raises pH naturally - perfect for African Cichlids';
-      } else if (fishType === 'tetra' && phEffect.includes('lowers pH')) {
+      if (fishType === 'cichlid' && productText.includes('cichlid')) {
+        reason = 'Specialized substrate for African Cichlids - raises pH naturally';
+      } else if (fishType === 'tetra' && productText.includes('soft')) {
         reason = 'Maintains soft water conditions ideal for tetras';
-      } else if (suitableFor.toLowerCase().includes(fishType)) {
+      } else if (productText.includes(fishType)) {
         reason = `Specially designed for ${fishType}s`;
       } else {
         reason = 'Neutral substrate suitable for community setups';
@@ -178,7 +178,8 @@ export class AIProductMatcher {
   }
 
   private static async getDecorationRecommendations(fishType: string, tankSizeL: number): Promise<ProductRecommendation[]> {
-    const decorationProducts = BigCommerceDiscovery.getProductsByCategory('Decoration');
+    const allProducts = await Database.getBigCommerceProducts();
+    const decorationProducts = allProducts.filter(p => p.categories.some(cat => [39, 40].includes(cat)));
     const recommendations: ProductRecommendation[] = [];
 
     decorationProducts.forEach((product, index) => {
@@ -213,14 +214,16 @@ export class AIProductMatcher {
   }
 
   private static async getFoodRecommendations(fishType: string, diet: string): Promise<ProductRecommendation[]> {
-    const foodProducts = BigCommerceDiscovery.getProductsByCategory('Food');
+    const allProducts = await Database.getBigCommerceProducts();
+    const foodProducts = allProducts.filter(p => p.categories.some(cat => [41, 42, 43].includes(cat)));
     const recommendations: ProductRecommendation[] = [];
 
-    // Filter foods by fish type
+    // Filter foods by fish type based on product name and description
     const suitableFoods = foodProducts.filter(product => {
-      const fishTypeField = product.custom_fields?.find(f => f.name === 'fish_type')?.value || '';
-      return fishTypeField.toLowerCase().includes(fishType) || 
-             product.name.toLowerCase().includes(fishType);
+      const productText = `${product.name} ${product.description}`.toLowerCase();
+      return productText.includes(fishType) || 
+             productText.includes(diet.toLowerCase()) ||
+             productText.includes('tropical') || productText.includes('community');
     });
 
     suitableFoods.slice(0, 3).forEach((product, index) => {
@@ -240,7 +243,8 @@ export class AIProductMatcher {
   }
 
   private static async getWaterTreatmentRecommendations(fishType: string, _phRange: string): Promise<ProductRecommendation[]> {
-    const treatmentProducts = BigCommerceDiscovery.getProductsByCategory('Water Treatment');
+    const allProducts = await Database.getBigCommerceProducts();
+    const treatmentProducts = allProducts.filter(p => p.categories.some(cat => [32, 33].includes(cat)));
     const recommendations: ProductRecommendation[] = [];
 
     treatmentProducts.forEach((product, _index) => {
@@ -275,8 +279,9 @@ export class AIProductMatcher {
   }
 
   private static async getHeatingRecommendations(tankSizeL: number, temperatureRange: string): Promise<ProductRecommendation[]> {
-    const heatingProducts = BigCommerceDiscovery.getProductsByCategory('Heating');
-    const suitableHeaters = BigCommerceDiscovery.getProductsByTankSize(tankSizeL);
+    const allProducts = await Database.getBigCommerceProducts();
+    const heatingProducts = allProducts.filter(p => p.categories.some(cat => [35, 36].includes(cat)));
+    const suitableHeaters = heatingProducts.filter(p => this.isProductSuitableForTankSize(p, tankSizeL));
     
     const matchingHeaters = heatingProducts.filter(product => 
       suitableHeaters.some(suitable => suitable.id === product.id)
@@ -304,7 +309,8 @@ export class AIProductMatcher {
   }
 
   private static async getTestingRecommendations(_fishType: string): Promise<ProductRecommendation[]> {
-    const testingProducts = BigCommerceDiscovery.getProductsByCategory('Testing');
+    const allProducts = await Database.getBigCommerceProducts();
+    const testingProducts = allProducts.filter(p => p.categories.some(cat => [44, 45].includes(cat)));
     
     return testingProducts.slice(0, 1).map(product => ({
       id: product.id.toString(),
@@ -331,6 +337,17 @@ export class AIProductMatcher {
   }
 
   // Helper utility methods
+
+  private static isProductSuitableForTankSize(product: BigCommerceProduct, tankSizeL: number): boolean {
+    // Simple heuristic based on product name and description for tank size suitability
+    const text = `${product.name} ${product.description}`.toLowerCase();
+    
+    if (tankSizeL <= 50 && (text.includes('small') || text.includes('nano') || text.includes('mini'))) return true;
+    if (tankSizeL <= 100 && (text.includes('100l') || text.includes('medium') || text.includes('compact'))) return true;
+    if (tankSizeL > 100 && (text.includes('large') || text.includes('500l') || text.includes('external'))) return true;
+    
+    return true; // Default to suitable
+  }
 
   private static extractTankSize(tankSizeStr: string): number {
     const match = tankSizeStr.match(/(\d+)L?/);

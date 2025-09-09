@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CatalogDatabase, SpeciesFileInfo } from '@/lib/database';
-import { BigCommerceDiscovery } from '@/lib/bigcommerce-discovery';
-import { BigCommerceProduct, SpeciesData } from '@/types/catalog';
+import { Database, SpeciesFileInfo, BigCommerceProduct } from '@/lib/database';
+import { SpeciesData } from '@/types/catalog';
 import SpeciesEditor from './SpeciesEditor';
 
 interface SpeciesFileManagerProps {
@@ -30,7 +29,7 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
   const loadFiles = async () => {
     setLoading(true);
     try {
-      const allFiles = await CatalogDatabase.getAllSpeciesFiles();
+      const allFiles = await Database.getAllSpeciesFiles();
       setFiles(allFiles);
     } catch (error) {
       console.error('Error loading files:', error);
@@ -41,10 +40,10 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
 
   const loadBigCommerceData = async () => {
     try {
-      await BigCommerceDiscovery.syncProducts();
-      const products = BigCommerceDiscovery.getAllProducts();
+      const products = await Database.getBigCommerceProducts();
       setBigcommerceProducts(products);
       setLastSync(new Date());
+      console.log('BigCommerce data loaded:', products.length, 'products');
     } catch (error) {
       console.error('Error loading BigCommerce data:', error);
     }
@@ -79,7 +78,7 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
 
     setProcessing(true);
     try {
-      await CatalogDatabase.deleteSpeciesFiles(Array.from(selectedFiles));
+      await Database.deleteSpeciesFiles(Array.from(selectedFiles));
       await loadFiles();
       setSelectedFiles(new Set());
       onUpdate?.();
@@ -96,7 +95,7 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
 
     setProcessing(true);
     try {
-      const result = await CatalogDatabase.copyFilesToDestination(
+      const result = await Database.copyFilesToDestination(
         Array.from(selectedFiles),
         catalystDestination
       );
@@ -119,7 +118,7 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
     
     // Download each selected file
     selectedFiles.forEach(async (productId) => {
-      const species = await CatalogDatabase.getSpecies(productId);
+      const species = await Database.getSpecies(productId);
       if (species) {
         const dataStr = JSON.stringify(species, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -138,7 +137,7 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
 
   const handleEditFile = async (productId: string) => {
     try {
-      const species = await CatalogDatabase.getSpecies(productId);
+      const species = await Database.getSpecies(productId);
       if (species) {
         setEditingSpecies(species);
       } else {
@@ -202,7 +201,7 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
               onClick={loadBigCommerceData}
               className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
             >
-              Sync Products
+              Refresh Data
             </button>
           </div>
         </div>
@@ -269,23 +268,20 @@ export default function SpeciesFileManager({ onUpdate }: SpeciesFileManagerProps
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
-              {bigcommerceProducts.slice(0, 12).map((product) => (
+              {bigcommerceProducts.map((product) => (
                 <div key={product.id} className="bg-white rounded-lg p-3 border border-green-200">
                   <div className="font-medium text-sm text-gray-900 truncate" title={product.name}>
                     {product.name}
                   </div>
                   <div className="text-xs text-gray-600 mt-1">
-                    £{product.price.toFixed(2)} | {product.categories.join(', ')}
+                    £{product.price.toFixed(2)} | Stock: {product.inventory_level}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    SKU: {product.sku} | Categories: {product.categories.join(', ')}
                   </div>
                 </div>
               ))}
             </div>
-            
-            {bigcommerceProducts.length > 12 && (
-              <div className="mt-3 text-sm text-green-700">
-                ... and {bigcommerceProducts.length - 12} more products
-              </div>
-            )}
           </div>
         )}
       </section>

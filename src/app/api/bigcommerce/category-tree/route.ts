@@ -1,53 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createStorefrontClient } from '@/lib/bigcommerce-storefront';
+import { NextResponse } from 'next/server';
+import { Database } from '@/lib/database';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const client = createStorefrontClient();
+    console.log('BigCommerce category tree request initiated - using JSON database');
+
+    const categories = await Database.getBigCommerceCategories();
     
-    if (!client) {
-      console.error('BigCommerce Storefront client not created - missing credentials');
-      return NextResponse.json(
-        { error: 'BigCommerce Storefront API credentials not configured. Please check BIGCOMMERCE_STOREFRONT_TOKEN environment variable.' }, 
-        { status: 500 }
-      );
-    }
-
-    console.log('Attempting to fetch category tree from BigCommerce Storefront API...');
-
-    const response = await client.getCategoryTree();
-    const categoryTree = response.data.site.categoryTree;
-    
-    console.log('GraphQL Categories response:', categoryTree.length, 'categories found');
-
-    // Convert GraphQL response to expected format
-    const convertCategory = (category: any): any => ({
-      id: category.entityId,
-      parent_id: 0, // GraphQL already provides hierarchical structure
-      name: category.name,
-      description: category.description,
-      is_visible: true,
-      sort_order: category.entityId,
-      children: category.children.edges.map((edge: any) => convertCategory(edge.node))
-    });
-
-    const tree = categoryTree.map(convertCategory);
+    console.log('BigCommerce categories response:', categories.length, 'categories found');
 
     return NextResponse.json({
-      data: tree,
+      data: categories,
       meta: {
-        total_categories: categoryTree.length,
-        api_type: 'graphql_storefront'
+        total_categories: categories.length,
+        api_type: 'json_database'
       }
     });
   } catch (error) {
-    console.error('Error fetching BigCommerce category tree:', error);
+    console.error('Error fetching BigCommerce category tree from database:', error);
     
-    // Return more detailed error information
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { 
-        error: 'Failed to fetch category tree from BigCommerce Storefront API',
+        error: 'Failed to fetch category tree from BigCommerce database',
         details: errorMessage,
         timestamp: new Date().toISOString()
       }, 

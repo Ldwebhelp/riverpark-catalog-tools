@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { getSpeciesFromDatabase } from '@/lib/speciesDatabase';
 import { CatalogDatabase } from '@/lib/database';
 import { AIProductMatcher } from '@/lib/ai-product-matcher';
-import { BigCommerceDiscovery } from '@/lib/bigcommerce-discovery';
 import { 
   GuideSection, 
   SpeciesData, 
@@ -195,7 +194,7 @@ export function AIEnhancedCareGuideGenerator() {
       // Initialize BigCommerce products
       if (includeProductRecommendations || includeSmartBundles) {
         setProgress(prev => prev ? { ...prev, currentStage: 'Loading product database...' } : null);
-        await BigCommerceDiscovery.syncProducts();
+        // BigCommerce products are now loaded from JSON database
       }
 
       const guides: AIEnhancedGuide[] = [];
