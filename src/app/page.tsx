@@ -38,7 +38,43 @@ export default function Home() {
           </section>
 
           {/* Tools Grid */}
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* AI Species Tool - Featured */}
+            <Link 
+              href="/ai-species" 
+              className="semantic-card group hover:border-orange-300 relative overflow-hidden"
+            >
+              <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                🤖 NEW
+              </div>
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="bg-orange-100 p-3 rounded-lg group-hover:bg-orange-200 transition-colors">
+                  <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 group-hover:text-orange-600">AI Species Generator</h3>
+                  <p className="text-gray-600">Automated species data generation with AI</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                  Connects to riverpark-catalyst-fresh AI system
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                  Automatic product discovery and batch processing
+                </div>
+                <div className="flex items-center">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                  Real-time progress tracking with OpenAI integration
+                </div>
+              </div>
+            </Link>
+
             {/* Species Tool */}
             <Link 
               href="/species" 
@@ -185,6 +221,12 @@ export default function Home() {
           <div className="bg-gray-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             <div className="flex flex-wrap gap-3">
+              <Link 
+                href="/ai-species" 
+                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors inline-flex items-center"
+              >
+                🤖 AI Species Generator
+              </Link>
               <Link 
                 href="/species" 
                 className="btn-primary"

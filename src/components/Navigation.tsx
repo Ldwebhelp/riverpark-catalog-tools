@@ -8,6 +8,7 @@ export function Navigation() {
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: '🏠' },
+    { href: '/ai-species', label: 'AI Species', icon: '🤖' },
     { href: '/species', label: 'Species Generator', icon: '🐠' },
     { href: '/guides', label: 'Care Guides', icon: '📖' },
     { href: '/products', label: 'Products', icon: '📦' },
