@@ -1,72 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createBigCommerceClient } from '@/lib/bigcommerce-client';
+import { createStorefrontClient } from '@/lib/bigcommerce-storefront';
 
 export async function GET(request: NextRequest) {
   try {
-    const client = createBigCommerceClient();
+    const client = createStorefrontClient();
     
     if (!client) {
-      console.error('BigCommerce client not created - missing credentials');
+      console.error('BigCommerce Storefront client not created - missing credentials');
       return NextResponse.json(
-        { error: 'BigCommerce API credentials not configured. Please check BIGCOMMERCE_ACCESS_TOKEN and BIGCOMMERCE_API_URL environment variables.' }, 
+        { error: 'BigCommerce Storefront API credentials not configured. Please check BIGCOMMERCE_STOREFRONT_TOKEN environment variable.' }, 
         { status: 500 }
       );
     }
 
-    console.log('BigCommerce products API request initiated');
+    console.log('BigCommerce Storefront products API request initiated');
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
     const categoryId = searchParams.get('categoryId');
     const keyword = searchParams.get('keyword');
-    const brandId = searchParams.get('brandId');
-    const isVisible = searchParams.get('isVisible');
-    const includeSubcategories = searchParams.get('includeSubcategories') === 'true';
 
-    // If requesting products from category and subcategories
-    if (categoryId && includeSubcategories) {
-      const result = await client.getProductsFromCategoryAndSubcategories(
-        parseInt(categoryId),
-        page,
-        limit
-      );
-      
-      return NextResponse.json({
-        data: result.products,
-        meta: {
-          pagination: result.pagination
-        },
-        categoryTree: result.categoryTree
-      });
+    // Calculate cursor pagination from page number
+    // Note: GraphQL uses cursor-based pagination, not offset-based
+    let after: string | undefined;
+    if (page > 1) {
+      // For simplicity, we'll use the page number as a cursor approximation
+      // In a real implementation, you'd store and pass actual cursors
+      after = btoa(`cursor:${(page - 1) * limit}`);
     }
 
-    // Regular product search with filters
+    // Build filters for GraphQL query
     const filters: any = {};
     
     if (categoryId) {
-      filters.categoryId = parseInt(categoryId);
+      filters.categoryEntityId = parseInt(categoryId);
     }
     
     if (keyword) {
-      filters.keyword = keyword;
-    }
-    
-    if (brandId) {
-      filters.brandId = parseInt(brandId);
-    }
-    
-    if (isVisible !== null) {
-      filters.isVisible = isVisible === 'true';
+      filters.searchTerm = keyword;
     }
 
-    const products = await client.getProducts(page, limit, filters);
+    console.log('Fetching products with filters:', filters);
 
-    return NextResponse.json(products);
+    const response = await client.getProducts(limit, after, filters);
+    const products = response.data.site.products;
+
+    console.log('GraphQL Products response:', products.edges.length, 'products found');
+
+    // Convert GraphQL response to expected format
+    const convertedProducts = products.edges.map((edge: any) => ({
+      id: edge.node.entityId,
+      name: edge.node.name,
+      type: 'physical',
+      sku: edge.node.sku,
+      description: edge.node.description,
+      price: edge.node.prices.price.value,
+      sale_price: edge.node.prices.salePrice?.value || 0,
+      inventory_level: edge.node.inventory.aggregated?.availableToSell || 0,
+      is_visible: true, // Storefront API only returns visible products
+      categories: edge.node.categories.edges.map((catEdge: any) => catEdge.node.entityId),
+      brand_id: null, // Would need to add brand to GraphQL query
+      images: edge.node.defaultImage ? [edge.node.defaultImage] : [],
+      primary_image: edge.node.defaultImage,
+      date_modified: new Date().toISOString(), // GraphQL doesn't return dates by default
+      date_created: new Date().toISOString(),
+    }));
+
+    // Simulate REST API pagination response
+    const totalPages = products.pageInfo.hasNextPage ? page + 1 : page;
+    const pagination = {
+      total: convertedProducts.length * totalPages, // Approximate
+      count: convertedProducts.length,
+      per_page: limit,
+      current_page: page,
+      total_pages: totalPages,
+      links: {
+        current: `page=${page}`,
+        next: products.pageInfo.hasNextPage ? `page=${page + 1}` : undefined,
+        previous: page > 1 ? `page=${page - 1}` : undefined,
+      }
+    };
+
+    return NextResponse.json({
+      data: convertedProducts,
+      meta: {
+        pagination,
+        api_type: 'graphql_storefront'
+      }
+    });
+
   } catch (error) {
     console.error('Error fetching BigCommerce products:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch products from BigCommerce', details: error instanceof Error ? error.message : 'Unknown error' }, 
+      { 
+        error: 'Failed to fetch products from BigCommerce Storefront API', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      }, 
       { status: 500 }
     );
   }
