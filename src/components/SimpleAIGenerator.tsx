@@ -30,12 +30,18 @@ interface SpeciesData {
 }
 
 interface Product {
-  productId: string;
+  entityId: number;
   name: string;
-  sku?: string;
-  price?: number;
-  categories?: string[];
-  inStock?: boolean;
+  path: string;
+  brand?: { name: string };
+  prices: {
+    price: { value: number; currencyCode: string };
+    salePrice: { value: number; currencyCode: string } | null;
+  };
+  defaultImage?: {
+    url: string;
+    altText: string;
+  };
 }
 
 export default function SimpleAIGenerator() {
@@ -53,15 +59,29 @@ export default function SimpleAIGenerator() {
     setError(null);
     
     try {
-      // Get fish products for species generation - use catalog-tools API
-      const response = await fetch('/api/bigcommerce/products?limit=50&keywords=fish,cichlid,tetra,betta,corydoras,angelfish,guppy');
+      // Load fish products from riverpark-catalyst-fresh
+      const fishSearches = ['cichlid', 'tetra', 'angelfish', 'betta', 'corydoras'];
+      const allProducts: Product[] = [];
       
-      if (!response.ok) {
-        throw new Error(`Failed to load products: ${response.status}`);
+      for (const search of fishSearches) {
+        const response = await fetch('http://localhost:3002/api/search/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ searchTerm: search, limit: 10 })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          allProducts.push(...(data.products || []));
+        }
       }
       
-      const data = await response.json();
-      setProducts(data.products || []);
+      // Remove duplicates based on entityId
+      const uniqueProducts = allProducts.filter((product, index, array) => 
+        array.findIndex(p => p.entityId === product.entityId) === index
+      );
+      
+      setProducts(uniqueProducts);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load products');
@@ -72,7 +92,7 @@ export default function SimpleAIGenerator() {
 
   const testConnection = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/health');
+      const response = await fetch('http://localhost:3002/api/health/');
       if (response.ok) {
         setConnectionStatus('connected');
         setError(null);
@@ -82,7 +102,7 @@ export default function SimpleAIGenerator() {
       }
     } catch (err) {
       setConnectionStatus('failed');
-      setError('Cannot connect to riverpark-catalyst-fresh AI service on localhost:3000');
+      setError('Cannot connect to riverpark-catalyst-fresh AI service on localhost:3002');
     }
   };
 
@@ -91,13 +111,13 @@ export default function SimpleAIGenerator() {
     setError(null);
     
     try {
-      const response = await fetch('http://localhost:3000/api/ai/generate-species', {
+      const response = await fetch('http://localhost:3002/api/ai/generate-species/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          productId: product.productId,
+          productId: product.entityId,
           name: product.name,
           provider: aiProvider
         }),
@@ -140,14 +160,14 @@ export default function SimpleAIGenerator() {
         
         {connectionStatus === 'connected' && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-green-700 font-medium">✅ Connected to AI service on localhost:3000</p>
+            <p className="text-green-700 font-medium">✅ Connected to AI service on localhost:3002</p>
           </div>
         )}
         
         {connectionStatus === 'failed' && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-700 font-medium">❌ Connection failed</p>
-            <p className="text-red-600 text-sm mt-1">Make sure riverpark-catalyst-fresh is running on localhost:3000</p>
+            <p className="text-red-600 text-sm mt-1">Make sure riverpark-catalyst-fresh is running on localhost:3002</p>
           </div>
         )}
       </section>
@@ -230,20 +250,22 @@ export default function SimpleAIGenerator() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProducts.slice(0, 20).map((product) => (
-                  <tr key={product.productId} className="hover:bg-gray-50">
+                  <tr key={product.entityId} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      {product.sku && (
-                        <div className="text-sm text-gray-500">SKU: {product.sku}</div>
+                      {product.brand && (
+                        <div className="text-sm text-gray-500">Brand: {product.brand.name}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{product.productId}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{product.entityId}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {product.price ? `£${product.price.toFixed(2)}` : 'N/A'}
+                      £{product.prices.price.value.toFixed(2)}
+                      {product.prices.salePrice && (
+                        <div className="text-sm text-green-600">Sale: £{product.prices.salePrice.value.toFixed(2)}</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {product.categories?.slice(0, 2).join(', ')}
-                      {product.categories && product.categories.length > 2 && '...'}
+                      Fish Species
                     </td>
                     <td className="px-6 py-4 text-sm font-medium">
                       <button
