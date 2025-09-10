@@ -1,21 +1,42 @@
 import { NextResponse } from 'next/server';
 import { VercelDatabase } from '@/lib/vercel-database';
-import { enhancedProductDiscovery } from '@/lib/enhanced-product-discovery';
+import { createBigCommerceClient } from '@/lib/bigcommerce-direct';
 
 export async function POST() {
   try {
-    console.log('🔄 Starting database sync...');
+    console.log('🔄 Starting BigCommerce to Database sync...');
 
-    // Get all products from enhanced discovery
-    const result = await enhancedProductDiscovery.discoverAllFishProducts({
-      sortBy: 'name',
-      sortOrder: 'asc'
-    });
+    // Initialize BigCommerce client
+    const bigcommerceClient = createBigCommerceClient();
+    
+    if (!bigcommerceClient) {
+      return NextResponse.json({
+        success: false,
+        error: 'BigCommerce credentials not configured',
+        syncedCount: 0
+      }, { status: 400 });
+    }
 
-    console.log(`📦 Found ${result.products.length} fish products to sync`);
+    // Test connection first
+    const connectionTest = await bigcommerceClient.testConnection();
+    if (!connectionTest.connected) {
+      return NextResponse.json({
+        success: false,
+        error: `BigCommerce connection failed: ${connectionTest.error}`,
+        syncedCount: 0
+      }, { status: 503 });
+    }
+
+    // Initialize database tables if needed
+    await VercelDatabase.initializeTables();
+
+    // Fetch all products from BigCommerce
+    const products = await bigcommerceClient.getAllProducts();
+    
+    console.log(`📦 Found ${products.length} products from BigCommerce`);
 
     // Sync products to database
-    await VercelDatabase.syncProducts(result.products);
+    await VercelDatabase.syncProducts(products);
 
     // Get updated analytics
     const analytics = await VercelDatabase.getAnalytics();
@@ -24,9 +45,9 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: 'Products synced to database successfully',
-      syncedCount: result.products.length,
-      source: result.source,
+      message: 'Products synced from BigCommerce to database successfully',
+      syncedCount: products.length,
+      source: 'bigcommerce-direct',
       analytics,
       timestamp: new Date().toISOString()
     });

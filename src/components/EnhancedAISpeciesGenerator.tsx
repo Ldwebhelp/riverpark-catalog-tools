@@ -106,28 +106,26 @@ export default function EnhancedAISpeciesGenerator() {
     }
   };
 
-  // Load status for each product
+  // Load status for each product from database
   const loadProductStatuses = async (products: Product[]) => {
     const statusMap = new Map<number, ProductStatus>();
     
-    // Use file-based storage for status tracking (cost-free)
     try {
-      const { FileProductStorage } = await import('@/lib/file-product-storage');
+      const { VercelDatabase } = await import('@/lib/vercel-database');
       
-      // Load all statuses from localStorage
-      const allStatuses = FileProductStorage.getAllProductStatuses();
+      // Load all statuses from database
+      const allStatuses = await VercelDatabase.getSpeciesStatuses();
       
       // Map each product to its status
       products.forEach(product => {
-        const statusKey = product.entityId.toString();
-        const status = allStatuses.get(statusKey);
+        const status = allStatuses.get(product.entityId);
         
         if (status) {
           statusMap.set(product.entityId, {
             status: status.status,
-            lastGenerated: status.lastGenerated,
-            filePath: status.filePath,
-            error: status.error
+            lastGenerated: status.last_generated || undefined,
+            filePath: status.file_path || undefined,
+            error: status.error_message || undefined
           });
         } else {
           // Default status for new products
@@ -136,7 +134,7 @@ export default function EnhancedAISpeciesGenerator() {
       });
       
     } catch (error) {
-      console.error('Failed to load product statuses:', error);
+      console.error('Failed to load product statuses from database:', error);
       // Fallback: set all products to no-file status
       products.forEach(product => {
         statusMap.set(product.entityId, { status: 'no-file' });
@@ -219,7 +217,7 @@ export default function EnhancedAISpeciesGenerator() {
       setGeneratedData(data);
       setSelectedProduct(product);
       
-      // Update status in both state and localStorage
+      // Update status in database
       const newStatus: ProductStatus = {
         status: 'created',
         lastGenerated: new Date().toISOString(),
@@ -228,12 +226,16 @@ export default function EnhancedAISpeciesGenerator() {
       
       setProductStatuses(prev => new Map(prev.set(product.entityId, newStatus)));
       
-      // Save to localStorage using file storage
+      // Save to database
       try {
-        const { FileProductStorage } = await import('@/lib/file-product-storage');
-        FileProductStorage.setProductStatus(product.entityId.toString(), newStatus);
+        const { VercelDatabase } = await import('@/lib/vercel-database');
+        await VercelDatabase.updateSpeciesStatus(
+          product.entityId, 
+          'created', 
+          newStatus.filePath
+        );
       } catch (error) {
-        console.error('Failed to save product status:', error);
+        console.error('Failed to save product status to database:', error);
       }
       
       // Track success in notifications
@@ -242,7 +244,7 @@ export default function EnhancedAISpeciesGenerator() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      // Update status to errored in both state and localStorage
+      // Update status to errored in database
       const errorStatus: ProductStatus = {
         status: 'errored',
         error: errorMessage
@@ -250,12 +252,17 @@ export default function EnhancedAISpeciesGenerator() {
       
       setProductStatuses(prev => new Map(prev.set(product.entityId, errorStatus)));
       
-      // Save to localStorage using file storage
+      // Save to database
       try {
-        const { FileProductStorage } = await import('@/lib/file-product-storage');
-        FileProductStorage.setProductStatus(product.entityId.toString(), errorStatus);
+        const { VercelDatabase } = await import('@/lib/vercel-database');
+        await VercelDatabase.updateSpeciesStatus(
+          product.entityId, 
+          'errored', 
+          undefined,
+          errorMessage
+        );
       } catch (error) {
-        console.error('Failed to save error status:', error);
+        console.error('Failed to save error status to database:', error);
       }
       
       // Track error in notifications
