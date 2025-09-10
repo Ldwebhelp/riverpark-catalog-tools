@@ -9,11 +9,7 @@ interface ProductSelectorFilters {
   searchTerm: string;
   categories: string[];
   brands: string[];
-  priceRange: {
-    min: number;
-    max: number;
-  };
-  sortBy: 'name' | 'price' | 'dateCreated' | 'dateModified';
+  sortBy: 'name' | 'dateCreated' | 'dateModified';
   sortOrder: 'asc' | 'desc';
 }
 
@@ -34,7 +30,6 @@ function ProductSelectorContent() {
     searchTerm: '',
     categories: [],
     brands: [],
-    priceRange: { min: 0, max: 1000 },
     sortBy: 'name',
     sortOrder: 'asc'
   });
@@ -50,20 +45,44 @@ function ProductSelectorContent() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const { enhancedProductDiscovery } = await import('@/lib/enhanced-product-discovery');
-      const result = await enhancedProductDiscovery.discoverAllFishProducts({ limit: 2000 });
+      const { VercelDatabase } = await import('@/lib/vercel-database');
+      const allProducts = await VercelDatabase.getCachedProducts();
       
-      setProducts(result.products);
-      setAvailableCategories(result.categories);
-      setAvailableBrands(result.brands);
-      
-      setFilters(prev => ({
-        ...prev,
-        priceRange: {
-          min: result.priceRange.min,
-          max: result.priceRange.max
-        }
+      // Convert to EnhancedProduct format - show ALL products
+      const enhancedProducts = allProducts.map(product => ({
+        entityId: product.entity_id,
+        name: product.name,
+        path: `/products/${product.entity_id}`,
+        brand: product.brand_name ? { name: product.brand_name } : undefined,
+        prices: {
+          price: { value: product.price, currencyCode: 'GBP' },
+          salePrice: null
+        },
+        defaultImage: undefined,
+        categories: product.categories,
+        sku: product.sku || undefined,
+        description: product.description || undefined,
+        inventory: {
+          isInStock: product.is_visible,
+          hasVariantInventory: false
+        },
+        dateCreated: product.date_created,
+        dateModified: product.date_modified,
+        isVisible: product.is_visible
       }));
+
+      // Get categories and brands from real data
+      const categories = new Set<string>();
+      const brands = new Set<string>();
+
+      enhancedProducts.forEach(product => {
+        product.categories?.forEach(cat => categories.add(cat));
+        if (product.brand?.name) brands.add(product.brand.name);
+      });
+      
+      setProducts(enhancedProducts);
+      setAvailableCategories(Array.from(categories).sort());
+      setAvailableBrands(Array.from(brands).sort());
 
     } catch (error) {
       console.error('Failed to load products:', error);
@@ -102,10 +121,6 @@ function ProductSelectorContent() {
       );
     }
 
-    filtered = filtered.filter(product => {
-      const price = product.prices.price.value;
-      return price >= filters.priceRange.min && price <= filters.priceRange.max;
-    });
 
     filtered.sort((a, b) => {
       const order = filters.sortOrder === 'desc' ? -1 : 1;
@@ -113,8 +128,6 @@ function ProductSelectorContent() {
       switch (filters.sortBy) {
         case 'name':
           return order * a.name.localeCompare(b.name);
-        case 'price':
-          return order * (a.prices.price.value - b.prices.price.value);
         case 'dateCreated':
           return order * (new Date(a.dateCreated || '').getTime() - new Date(b.dateCreated || '').getTime());
         case 'dateModified':
@@ -136,7 +149,6 @@ function ProductSelectorContent() {
       searchTerm: '',
       categories: [],
       brands: [],
-      priceRange: { min: 0, max: 1000 },
       sortBy: 'name',
       sortOrder: 'asc'
     });
@@ -340,10 +352,10 @@ function ProductSelectorContent() {
                 >
                   <option value="name-asc">Name (A-Z)</option>
                   <option value="name-desc">Name (Z-A)</option>
-                  <option value="price-asc">Price (Low-High)</option>
-                  <option value="price-desc">Price (High-Low)</option>
                   <option value="dateCreated-desc">Newest First</option>
                   <option value="dateCreated-asc">Oldest First</option>
+                  <option value="dateModified-desc">Recently Updated</option>
+                  <option value="dateModified-asc">Oldest Updated</option>
                 </select>
               </div>
 
@@ -414,10 +426,6 @@ function ProductSelectorContent() {
                         </div>
                       </div>
                       
-                      <div className="text-lg font-bold text-gray-900 mb-2">
-                        £{product.prices.price.value.toFixed(2)}
-                      </div>
-                      
                       {product.categories && product.categories.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-2">
                           {product.categories.slice(0, 2).map(category => (
@@ -474,14 +482,6 @@ function ProductSelectorContent() {
                                 {product.inventory?.isInStock ? 'In Stock' : 'Out of Stock'}
                               </span>
                             </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-gray-900">
-                            £{product.prices.price.value.toFixed(2)}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {product.prices.price.currencyCode}
                           </div>
                         </div>
                       </div>
