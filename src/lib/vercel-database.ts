@@ -3,7 +3,16 @@
  * Provides persistent storage for products, species data, and notifications
  */
 
-import { sql } from '@vercel/postgres';
+// Conditional import for optional database functionality  
+let sql: any = null;
+try {
+  if (process.env.POSTGRES_URL) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    sql = require('@vercel/postgres').sql;
+  }
+} catch {
+  console.log('Database not configured - running without persistent storage');
+}
 
 // Database schema types
 export interface DatabaseProduct {
@@ -66,6 +75,10 @@ export class VercelDatabase {
    * Initialize database tables if they don't exist
    */
   static async initializeTables(): Promise<void> {
+    if (!sql) {
+      throw new Error('Database not configured. Please set up Vercel Postgres and add POSTGRES_URL to environment variables.');
+    }
+    
     try {
       // Products table
       await sql`
@@ -156,6 +169,11 @@ export class VercelDatabase {
    * Sync products from BigCommerce to database
    */
   static async syncProducts(products: any[]): Promise<void> {
+    if (!sql) {
+      console.log('Database not configured - skipping product sync');
+      return;
+    }
+    
     try {
       for (const product of products) {
         await sql`

@@ -69,7 +69,11 @@ export default function DatabasePage() {
         setStatus(data);
         alert('✅ Database initialized successfully!');
       } else {
-        alert(`❌ Database initialization failed: ${data.error}`);
+        if (data.error?.includes('Database not configured')) {
+          alert(`🔧 Database Setup Required:\n\n1. Create Vercel Postgres database in your project\n2. Add POSTGRES_URL to environment variables\n3. Redeploy your application\n4. Return here to initialize\n\nSee VERCEL-DATABASE-SETUP.md for detailed instructions.`);
+        } else {
+          alert(`❌ Database initialization failed: ${data.error}`);
+        }
       }
     } catch (error) {
       console.error('Failed to initialize database:', error);
