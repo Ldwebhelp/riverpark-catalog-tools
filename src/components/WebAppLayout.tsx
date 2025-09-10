@@ -155,8 +155,20 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
             </button>
           </div>
           
-          <div className="text-sm text-gray-500">
-            Database: <span className="text-green-600 font-medium">Connected</span>
+          {/* System Status Indicators */}
+          <div className="flex items-center space-x-4 text-xs text-gray-500">
+            <div className="flex items-center space-x-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span>Database</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span>BigCommerce</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span>AI Services</span>
+            </div>
           </div>
           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
             R
@@ -166,10 +178,10 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
 
       <div className="flex flex-1">
         {/* Left Navigation Sidebar */}
-        <nav className={`bg-white border-r border-gray-200 transition-all duration-300 ${
+        <nav className={`bg-white border-r border-gray-200 transition-all duration-300 flex flex-col ${
           sidebarCollapsed ? 'w-16' : 'w-72'
         }`}>
-          <div className="p-4">
+          <div className="p-4 flex-1 overflow-y-auto">
             <div className="space-y-2">
               {navigationItems.map((item) => {
                 const isActive = pathname === item.href;
@@ -201,28 +213,6 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
             </div>
           </div>
 
-          {/* Navigation Footer */}
-          {!sidebarCollapsed && (
-            <div className="absolute bottom-4 left-4 right-4">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-xs text-gray-600 mb-2">System Status</div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span>Database:</span>
-                    <span className="text-green-600">✓ Online</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>BigCommerce:</span>
-                    <span className="text-green-600">✓ Synced</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>AI Services:</span>
-                    <span className="text-green-600">✓ Ready</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </nav>
 
         {/* Main Content Area */}
