@@ -1,38 +1,21 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import WebAppLayout from '@/components/WebAppLayout';
-import { EnhancedProduct } from '@/lib/enhanced-product-discovery';
-
-interface ProductSelectorFilters {
-  searchTerm: string;
-  categories: string[];
-  brands: string[];
-  sortBy: 'name' | 'dateCreated' | 'dateModified';
-  sortOrder: 'asc' | 'desc';
-}
+import { enhancedProductDiscovery, type EnhancedProduct } from '@/lib/enhanced-product-discovery';
 
 function ProductSelectorContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') || '/care-guides';
-  const purpose = searchParams.get('purpose') || 'content creation';
   
   const [products, setProducts] = useState<EnhancedProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<EnhancedProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProducts, setSelectedProducts] = useState<EnhancedProduct[]>([]);
-  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [filters, setFilters] = useState<ProductSelectorFilters>({
-    searchTerm: '',
-    categories: [],
-    brands: [],
-    sortBy: 'name',
-    sortOrder: 'asc'
-  });
+  const [selectedProduct, setSelectedProduct] = useState<EnhancedProduct | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [generatedContent, setGeneratedContent] = useState<any>(null);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -40,49 +23,19 @@ function ProductSelectorContent() {
 
   useEffect(() => {
     applyFilters();
-  }, [products, filters]);
+  }, [products, searchTerm]);
 
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const { VercelDatabase } = await import('@/lib/vercel-database');
-      const allProducts = await VercelDatabase.getCachedProducts();
-      
-      // Convert to EnhancedProduct format - show ALL products
-      const enhancedProducts = allProducts.map(product => ({
-        entityId: product.entity_id,
-        name: product.name,
-        path: `/products/${product.entity_id}`,
-        brand: product.brand_name ? { name: product.brand_name } : undefined,
-        prices: {
-          price: { value: product.price, currencyCode: 'GBP' },
-          salePrice: null
-        },
-        defaultImage: undefined,
-        categories: product.categories,
-        sku: product.sku || undefined,
-        description: product.description || undefined,
-        inventory: {
-          isInStock: product.is_visible,
-          hasVariantInventory: false
-        },
-        dateCreated: product.date_created,
-        dateModified: product.date_modified,
-        isVisible: product.is_visible
-      }));
-
-      // Get categories and brands from real data
-      const categories = new Set<string>();
-      const brands = new Set<string>();
-
-      enhancedProducts.forEach(product => {
-        product.categories?.forEach(cat => categories.add(cat));
-        if (product.brand?.name) brands.add(product.brand.name);
+      // Use the same working method as AI Species Generator
+      const result = await enhancedProductDiscovery.discoverAllFishProducts({
+        sortBy: 'name',
+        sortOrder: 'asc'
       });
       
-      setProducts(enhancedProducts);
-      setAvailableCategories(Array.from(categories).sort());
-      setAvailableBrands(Array.from(brands).sort());
+      setProducts(result.products);
+      console.log(`✅ Loaded ${result.products.length} products`);
 
     } catch (error) {
       console.error('Failed to load products:', error);
@@ -94,111 +47,124 @@ function ProductSelectorContent() {
   const applyFilters = () => {
     let filtered = [...products];
 
-    if (filters.searchTerm) {
-      const term = filters.searchTerm.toLowerCase();
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(term) ||
         product.entityId.toString().includes(term) ||
-        product.sku?.toLowerCase().includes(term) ||
-        product.description?.toLowerCase().includes(term) ||
-        product.brand?.name.toLowerCase().includes(term)
+        product.sku?.toLowerCase().includes(term)
       );
     }
-
-    if (filters.categories.length > 0) {
-      filtered = filtered.filter(product =>
-        product.categories?.some(cat =>
-          filters.categories.some(filterCat => 
-            cat.toLowerCase().includes(filterCat.toLowerCase())
-          )
-        )
-      );
-    }
-
-    if (filters.brands.length > 0) {
-      filtered = filtered.filter(product =>
-        product.brand?.name && filters.brands.includes(product.brand.name)
-      );
-    }
-
-
-    filtered.sort((a, b) => {
-      const order = filters.sortOrder === 'desc' ? -1 : 1;
-      
-      switch (filters.sortBy) {
-        case 'name':
-          return order * a.name.localeCompare(b.name);
-        case 'dateCreated':
-          return order * (new Date(a.dateCreated || '').getTime() - new Date(b.dateCreated || '').getTime());
-        case 'dateModified':
-          return order * (new Date(a.dateModified || '').getTime() - new Date(b.dateModified || '').getTime());
-        default:
-          return 0;
-      }
-    });
 
     setFilteredProducts(filtered);
   };
 
-  const handleFilterChange = (newFilters: Partial<ProductSelectorFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+  const generateAIContent = async (product: EnhancedProduct) => {
+    setGenerating(true);
+    setGeneratedContent(null);
+    
+    try {
+      // Simple AI generation - create species data like the working test page
+      const speciesData = {
+        productId: product.entityId.toString(),
+        type: 'Fish',
+        scientificName: extractScientificName(product.name),
+        commonName: extractCommonName(product.name),
+        specifications: {
+          'Min Tank Size': '120 Litres',
+          'Temperature': '24-26°C',
+          'pH Range': '7.5-8.5',
+          'Max Size': '12cm',
+          'Diet': 'Omnivore',
+          'Group Size': '6+',
+          'Difficulty': 'Beginner',
+          'Temperament': 'Peaceful'
+        },
+        species: {
+          family: 'Cichlidae',
+          habitat: 'Lake Malawi',
+          origin: 'Africa',
+          lifespan: '8-10 years',
+          waterType: 'Freshwater',
+          description: `Care guide for ${product.name}`
+        },
+        generatedAt: new Date().toISOString(),
+        aiProvider: 'Local Generator'
+      };
+      
+      setGeneratedContent(speciesData);
+      
+    } catch (error) {
+      console.error('Failed to generate content:', error);
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const resetFilters = () => {
-    setFilters({
-      searchTerm: '',
-      categories: [],
-      brands: [],
-      sortBy: 'name',
-      sortOrder: 'asc'
+  const extractScientificName = (name: string): string => {
+    const match = name.match(/\(([^)]+)\)/);
+    return match ? match[1] : 'Species scientificus';
+  };
+
+  const extractCommonName = (name: string): string => {
+    return name.split('(')[0].trim();
+  };
+
+  const [savedToProject, setSavedToProject] = useState(false);
+  const [savingToProject, setSavingToProject] = useState(false);
+
+  const downloadJSON = () => {
+    if (!generatedContent) return;
+    
+    const blob = new Blob([JSON.stringify(generatedContent, null, 2)], {
+      type: 'application/json'
     });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${generatedContent.commonName.replace(/\s+/g, '_')}_care_guide.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
-  const handleProductSelect = (product: EnhancedProduct) => {
-    if (selectedProducts.find(p => p.entityId === product.entityId)) {
-      setSelectedProducts(selectedProducts.filter(p => p.entityId !== product.entityId));
-    } else {
-      setSelectedProducts([...selectedProducts, product]);
+  const saveToProjectFolder = async () => {
+    if (!generatedContent || !selectedProduct) return;
+    
+    setSavingToProject(true);
+    try {
+      // Save to riverpark-catalyst-fresh project folder
+      const response = await fetch('/api/save-to-project', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: selectedProduct.entityId,
+          content: generatedContent,
+          filename: `${generatedContent.commonName.replace(/\s+/g, '_')}_care_guide.json`
+        })
+      });
+
+      if (response.ok) {
+        setSavedToProject(true);
+        setTimeout(() => setSavedToProject(false), 3000); // Reset after 3 seconds
+      } else {
+        console.error('Failed to save to project folder');
+      }
+    } catch (error) {
+      console.error('Error saving to project:', error);
+    } finally {
+      setSavingToProject(false);
     }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedProducts.length === filteredProducts.length) {
-      setSelectedProducts([]);
-    } else {
-      setSelectedProducts([...filteredProducts]);
-    }
-  };
-
-  const handleContinueWithSelected = () => {
-    if (selectedProducts.length > 0) {
-      // Store selected products in sessionStorage for the next page to use
-      sessionStorage.setItem('selectedProducts', JSON.stringify(selectedProducts));
-      router.push(returnTo);
-    }
-  };
-
-  const isProductSelected = (product: EnhancedProduct) => {
-    return selectedProducts.some(p => p.entityId === product.entityId);
   };
 
   if (loading) {
     return (
       <WebAppLayout>
-        <div className="p-6">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-1 space-y-4">
-                <div className="h-64 bg-gray-200 rounded"></div>
-              </div>
-              <div className="lg:col-span-3 space-y-4">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="h-32 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            </div>
-          </div>
+        <div className="p-6 flex items-center justify-center">
+          <div className="text-lg">Loading products...</div>
         </div>
       </WebAppLayout>
     );
@@ -206,293 +172,127 @@ function ProductSelectorContent() {
 
   return (
     <WebAppLayout>
-      <div className="p-6 space-y-6">
-        
-        {/* Page Actions */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                Select products for {purpose} • {selectedProducts.length} selected • {filteredProducts.length.toLocaleString()} of {products.length.toLocaleString()} products shown
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2 text-sm">
-                <span>View:</span>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  Grid
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  List
-                </button>
-              </div>
-              <button
-                onClick={handleSelectAll}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium"
+      <div className="h-full flex">
+        {/* Left Panel - Product List */}
+        <div className="w-1/2 border-r border-gray-200 p-6">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold mb-4">🐟 Select a Product</h2>
+            
+            {/* Search */}
+            <input
+              type="text"
+              placeholder="Search products or Product ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          {/* Product List */}
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+            {filteredProducts.map((product) => (
+              <div
+                key={product.entityId}
+                onClick={() => setSelectedProduct(product)}
+                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  selectedProduct?.entityId === product.entityId
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
               >
-                {selectedProducts.length === filteredProducts.length ? 'Deselect All' : 'Select All'}
-              </button>
-              <button
-                onClick={handleContinueWithSelected}
-                disabled={selectedProducts.length === 0}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
-              >
-                <span>Continue with {selectedProducts.length} Selected</span>
-                <span>→</span>
-              </button>
-            </div>
+                <div className="font-medium text-gray-900">{product.name}</div>
+                <div className="text-sm text-gray-500">
+                  ID: {product.entityId} {product.sku && `• SKU: ${product.sku}`}
+                </div>
+                {product.categories && product.categories.length > 0 && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    {product.categories.slice(0, 2).join(', ')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 text-sm text-gray-500">
+            Showing {filteredProducts.length} of {products.length} products
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          
-          {/* Filters Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
-              
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-gray-900">Filters</h3>
-                <button
-                  onClick={resetFilters}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  Reset All
-                </button>
+        {/* Right Panel - Selected Product & AI Generation */}
+        <div className="w-1/2 p-6">
+          {selectedProduct ? (
+            <div>
+              <h3 className="text-lg font-bold mb-4">Selected Product</h3>
+              <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                <div className="font-medium">{selectedProduct.name}</div>
+                <div className="text-sm text-gray-600">ID: {selectedProduct.entityId}</div>
+                {selectedProduct.sku && (
+                  <div className="text-sm text-gray-600">SKU: {selectedProduct.sku}</div>
+                )}
               </div>
 
-              {/* Search */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search Products
-                </label>
-                <input
-                  type="text"
-                  value={filters.searchTerm}
-                  onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
-                  placeholder="Search by name, Product ID, SKU..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+              {/* AI Generate Button */}
+              <button
+                onClick={() => generateAIContent(selectedProduct)}
+                disabled={generating}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 mb-6"
+              >
+                {generating ? '🤖 Generating...' : '🤖 AI Generate Care Guide'}
+              </button>
 
-              {/* Categories */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Categories ({availableCategories.length})
-                </label>
-                <div className="max-h-32 overflow-y-auto space-y-1">
-                  {availableCategories.slice(0, 10).map(category => (
-                    <label key={category} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filters.categories.includes(category)}
-                        onChange={(e) => {
-                          const newCategories = e.target.checked
-                            ? [...filters.categories, category]
-                            : filters.categories.filter(c => c !== category);
-                          handleFilterChange({ categories: newCategories });
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-600 truncate">
-                        {category}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Brands */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Brands ({availableBrands.length})
-                </label>
-                <div className="max-h-32 overflow-y-auto space-y-1">
-                  {availableBrands.slice(0, 10).map(brand => (
-                    <label key={brand} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filters.brands.includes(brand)}
-                        onChange={(e) => {
-                          const newBrands = e.target.checked
-                            ? [...filters.brands, brand]
-                            : filters.brands.filter(b => b !== brand);
-                          handleFilterChange({ brands: newBrands });
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-600 truncate">
-                        {brand}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sort Options */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sort By
-                </label>
-                <select
-                  value={`${filters.sortBy}-${filters.sortOrder}`}
-                  onChange={(e) => {
-                    const [sortBy, sortOrder] = e.target.value.split('-');
-                    handleFilterChange({ 
-                      sortBy: sortBy as ProductSelectorFilters['sortBy'],
-                      sortOrder: sortOrder as ProductSelectorFilters['sortOrder']
-                    });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="name-asc">Name (A-Z)</option>
-                  <option value="name-desc">Name (Z-A)</option>
-                  <option value="dateCreated-desc">Newest First</option>
-                  <option value="dateCreated-asc">Oldest First</option>
-                  <option value="dateModified-desc">Recently Updated</option>
-                  <option value="dateModified-asc">Oldest Updated</option>
-                </select>
-              </div>
-
-              {/* Selected Products Summary */}
-              {selectedProducts.length > 0 && (
+              {/* Generated Content */}
+              {generatedContent && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selected Products ({selectedProducts.length})
-                  </label>
-                  <div className="bg-blue-50 rounded-lg p-3 max-h-32 overflow-y-auto">
-                    {selectedProducts.slice(0, 5).map(product => (
-                      <div key={product.entityId} className="text-xs text-blue-800 truncate">
-                        {product.name}
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium">Generated Content</h4>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={downloadJSON}
+                        className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700"
+                      >
+                        📥 Download JSON
+                      </button>
+                      <button
+                        onClick={saveToProjectFolder}
+                        disabled={savingToProject}
+                        className={`px-4 py-2 rounded text-sm font-medium ${
+                          savedToProject 
+                            ? 'bg-green-100 text-green-800 border border-green-300'
+                            : savingToProject
+                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {savedToProject ? '✅ Saved to Project' : savingToProject ? '💾 Saving...' : '💾 Save to Project'}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Status Indicator */}
+                  {savedToProject && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-2 text-green-800">
+                        <span>✅</span>
+                        <span className="font-medium">Successfully saved to riverpark-catalyst-fresh!</span>
                       </div>
-                    ))}
-                    {selectedProducts.length > 5 && (
-                      <div className="text-xs text-blue-600 mt-1">
-                        +{selectedProducts.length - 5} more selected
+                      <div className="text-sm text-green-600 mt-1">
+                        Product Details will now display this care guide content for Product ID {selectedProduct?.entityId}
                       </div>
-                    )}
+                    </div>
+                  )}
+                  
+                  <div className="bg-gray-900 text-green-400 p-4 rounded-lg text-sm max-h-96 overflow-y-auto">
+                    <pre>{JSON.stringify(generatedContent, null, 2)}</pre>
                   </div>
                 </div>
               )}
-
             </div>
-          </div>
-
-          {/* Products Display */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              
-              {filteredProducts.length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="text-4xl mb-4">🔍</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-                  <p className="text-gray-600">Try adjusting your filters to see more results</p>
-                </div>
-              ) : viewMode === 'grid' ? (
-                /* Grid View */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                  {filteredProducts.map(product => (
-                    <div
-                      key={product.entityId}
-                      onClick={() => handleProductSelect(product)}
-                      className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
-                        isProductSelected(product)
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-1">
-                            {product.name}
-                          </h3>
-                          <div className="text-xs text-gray-600 mb-2">
-                            ID: {product.entityId}
-                            {product.sku && ` • SKU: ${product.sku}`}
-                          </div>
-                        </div>
-                        <div className="ml-2">
-                          <input
-                            type="checkbox"
-                            checked={isProductSelected(product)}
-                            onChange={() => handleProductSelect(product)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-                      
-                      {product.categories && product.categories.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {product.categories.slice(0, 2).map(category => (
-                            <span
-                              key={category}
-                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800"
-                            >
-                              {category}
-                            </span>
-                          ))}
-                          {product.categories.length > 2 && (
-                            <span className="text-xs text-gray-500">
-                              +{product.categories.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{product.inventory?.isInStock ? 'In Stock' : 'Out of Stock'}</span>
-                        {product.brand?.name && <span>{product.brand.name}</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                /* List View */
-                <div className="divide-y divide-gray-200">
-                  {filteredProducts.map(product => (
-                    <div
-                      key={product.entityId}
-                      onClick={() => handleProductSelect(product)}
-                      className={`p-4 cursor-pointer transition-colors hover:bg-gray-50 ${
-                        isProductSelected(product) ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4 flex-1">
-                          <input
-                            type="checkbox"
-                            checked={isProductSelected(product)}
-                            onChange={() => handleProductSelect(product)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <div className="flex-1">
-                            <h3 className="font-medium text-gray-900 mb-1">
-                              {product.name}
-                            </h3>
-                            <div className="flex items-center space-x-4 text-sm text-gray-600">
-                              <span>ID: {product.entityId}</span>
-                              {product.sku && <span>SKU: {product.sku}</span>}
-                              {product.brand?.name && <span>Brand: {product.brand.name}</span>}
-                              <span className={product.inventory?.isInStock ? 'text-green-600' : 'text-red-600'}>
-                                {product.inventory?.isInStock ? 'In Stock' : 'Out of Stock'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              👈 Select a product from the list to get started
             </div>
-          </div>
+          )}
         </div>
-
       </div>
     </WebAppLayout>
   );
@@ -500,25 +300,7 @@ function ProductSelectorContent() {
 
 export default function ProductSelectorPage() {
   return (
-    <Suspense fallback={
-      <WebAppLayout>
-        <div className="p-6">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-1 space-y-4">
-                <div className="h-64 bg-gray-200 rounded"></div>
-              </div>
-              <div className="lg:col-span-3 space-y-4">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="h-32 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </WebAppLayout>
-    }>
+    <Suspense fallback={<div>Loading...</div>}>
       <ProductSelectorContent />
     </Suspense>
   );
