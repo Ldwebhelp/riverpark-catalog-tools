@@ -32,6 +32,13 @@ const navigationItems: NavItem[] = [
     description: 'BigCommerce Product Management'
   },
   {
+    id: 'product-selector',
+    label: 'Product Selector',
+    href: '/product-selector',
+    icon: '✅',
+    description: 'Select Products for Content Creation'
+  },
+  {
     id: 'care-guides',
     label: 'Care Guides',
     href: '/care-guides',

@@ -482,8 +482,15 @@ Never touch electrical equipment with wet hands. Always unplug heaters before ma
             </div>
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => window.location.href = '/product-selector?returnTo=/information&purpose=information panel creation'}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
+              >
+                <span>✅</span>
+                <span>Select Products</span>
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
               >
                 <span>➕</span>
                 <span>New Panel</span>
