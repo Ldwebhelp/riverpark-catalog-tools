@@ -64,7 +64,7 @@ export default function SimpleAIGenerator() {
       const allProducts: Product[] = [];
       
       for (const search of fishSearches) {
-        const response = await fetch('http://localhost:3002/api/search/', {
+        const response = await fetch('https://riverpark-catalyst-fresh.vercel.app/api/search/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ searchTerm: search, limit: 10 })
@@ -92,7 +92,7 @@ export default function SimpleAIGenerator() {
 
   const testConnection = async () => {
     try {
-      const response = await fetch('http://localhost:3002/api/health/');
+      const response = await fetch('https://riverpark-catalyst-fresh.vercel.app/api/health/');
       if (response.ok) {
         setConnectionStatus('connected');
         setError(null);
@@ -102,7 +102,7 @@ export default function SimpleAIGenerator() {
       }
     } catch (err) {
       setConnectionStatus('failed');
-      setError('Cannot connect to riverpark-catalyst-fresh AI service on localhost:3002');
+      setError('Cannot connect to riverpark-catalyst-fresh AI service');
     }
   };
 
@@ -111,7 +111,7 @@ export default function SimpleAIGenerator() {
     setError(null);
     
     try {
-      const response = await fetch('http://localhost:3002/api/ai/generate-species/', {
+      const response = await fetch('https://riverpark-catalyst-fresh.vercel.app/api/ai/generate-species/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ export default function SimpleAIGenerator() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Connection Status</h2>
-            <p className="text-gray-600 mt-1">Test connection to riverpark-catalyst-fresh AI service</p>
+            <p className="text-gray-600 mt-1">Test connection to production AI service (riverpark-catalyst-fresh.vercel.app)</p>
           </div>
           <button
             onClick={testConnection}
@@ -160,14 +160,14 @@ export default function SimpleAIGenerator() {
         
         {connectionStatus === 'connected' && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-green-700 font-medium">✅ Connected to AI service on localhost:3002</p>
+            <p className="text-green-700 font-medium">✅ Connected to AI service at riverpark-catalyst-fresh.vercel.app</p>
           </div>
         )}
         
         {connectionStatus === 'failed' && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-700 font-medium">❌ Connection failed</p>
-            <p className="text-red-600 text-sm mt-1">Make sure riverpark-catalyst-fresh is running on localhost:3002</p>
+            <p className="text-red-600 text-sm mt-1">Check riverpark-catalyst-fresh.vercel.app availability</p>
           </div>
         )}
       </section>
