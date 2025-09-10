@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Navigation } from '@/components/Navigation';
 
-const SpeciesAIGenerator = dynamic(() => import('@/components/SpeciesAIGenerator'), {
+const SimpleAIGenerator = dynamic(() => import('@/components/SimpleAIGenerator'), {
   ssr: false,
   loading: () => (
     <div className="semantic-layout">
@@ -50,7 +50,7 @@ export default function AISpeciesPage() {
         </header>
         
         <main className="semantic-main">
-          <SpeciesAIGenerator />
+          <SimpleAIGenerator />
         </main>
       </div>
     </>

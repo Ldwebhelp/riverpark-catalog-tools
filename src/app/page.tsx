@@ -45,7 +45,7 @@ export default function Home() {
               className="semantic-card group hover:border-orange-300 relative overflow-hidden"
             >
               <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                🤖 NEW
+                🤖 UPDATED
               </div>
               <div className="flex items-center space-x-4 mb-4">
                 <div className="bg-orange-100 p-3 rounded-lg group-hover:bg-orange-200 transition-colors">
@@ -55,22 +55,22 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 group-hover:text-orange-600">AI Species Generator</h3>
-                  <p className="text-gray-600">Automated species data generation with AI</p>
+                  <p className="text-gray-600">Simple & clean AI species data generation</p>
                 </div>
               </div>
               
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex items-center">
                   <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                  Connects to riverpark-catalyst-fresh AI system
+                  Clean interface like the test page
                 </div>
                 <div className="flex items-center">
                   <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                  Automatic product discovery and batch processing
+                  Test individual products with instant results
                 </div>
                 <div className="flex items-center">
                   <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                  Real-time progress tracking with OpenAI integration
+                  Visual species data with JSON preview
                 </div>
               </div>
             </Link>
