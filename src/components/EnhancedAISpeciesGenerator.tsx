@@ -110,36 +110,37 @@ export default function EnhancedAISpeciesGenerator() {
   const loadProductStatuses = async (products: Product[]) => {
     const statusMap = new Map<number, ProductStatus>();
     
-    // Process products in batches to avoid overwhelming the API
-    const batchSize = 10;
-    for (let i = 0; i < products.length; i += batchSize) {
-      const batch = products.slice(i, i + batchSize);
+    // Use file-based storage for status tracking (cost-free)
+    try {
+      const { FileProductStorage } = await import('@/lib/file-product-storage');
       
-      await Promise.all(batch.map(async (product) => {
-        try {
-          // Use our new species status API
-          const response = await fetch(`/api/species-status/${product.entityId}`);
-          if (response.ok) {
-            const data = await response.json();
-            statusMap.set(product.entityId, {
-              status: data.status,
-              lastGenerated: data.lastModified,
-              filePath: data.filePath,
-              error: data.error
-            });
-          } else {
-            statusMap.set(product.entityId, { 
-              status: 'errored', 
-              error: `Status check failed: ${response.status}` 
-            });
-          }
-        } catch (error) {
-          statusMap.set(product.entityId, { 
-            status: 'errored', 
-            error: 'Status check failed' 
+      // Load all statuses from localStorage
+      const allStatuses = FileProductStorage.getAllProductStatuses();
+      
+      // Map each product to its status
+      products.forEach(product => {
+        const statusKey = product.entityId.toString();
+        const status = allStatuses.get(statusKey);
+        
+        if (status) {
+          statusMap.set(product.entityId, {
+            status: status.status,
+            lastGenerated: status.lastGenerated,
+            filePath: status.filePath,
+            error: status.error
           });
+        } else {
+          // Default status for new products
+          statusMap.set(product.entityId, { status: 'no-file' });
         }
-      }));
+      });
+      
+    } catch (error) {
+      console.error('Failed to load product statuses:', error);
+      // Fallback: set all products to no-file status
+      products.forEach(product => {
+        statusMap.set(product.entityId, { status: 'no-file' });
+      });
     }
     
     setProductStatuses(statusMap);
@@ -218,7 +219,7 @@ export default function EnhancedAISpeciesGenerator() {
       setGeneratedData(data);
       setSelectedProduct(product);
       
-      // Update status
+      // Update status in both state and localStorage
       const newStatus: ProductStatus = {
         status: 'created',
         lastGenerated: new Date().toISOString(),
@@ -227,19 +228,35 @@ export default function EnhancedAISpeciesGenerator() {
       
       setProductStatuses(prev => new Map(prev.set(product.entityId, newStatus)));
       
+      // Save to localStorage using file storage
+      try {
+        const { FileProductStorage } = await import('@/lib/file-product-storage');
+        FileProductStorage.setProductStatus(product.entityId.toString(), newStatus);
+      } catch (error) {
+        console.error('Failed to save product status:', error);
+      }
+      
       // Track success in notifications
       notificationsSystem.trackSpeciesGeneration(product.entityId.toString(), true);
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      // Update status to errored
+      // Update status to errored in both state and localStorage
       const errorStatus: ProductStatus = {
         status: 'errored',
         error: errorMessage
       };
       
       setProductStatuses(prev => new Map(prev.set(product.entityId, errorStatus)));
+      
+      // Save to localStorage using file storage
+      try {
+        const { FileProductStorage } = await import('@/lib/file-product-storage');
+        FileProductStorage.setProductStatus(product.entityId.toString(), errorStatus);
+      } catch (error) {
+        console.error('Failed to save error status:', error);
+      }
       
       // Track error in notifications
       notificationsSystem.trackSpeciesGeneration(product.entityId.toString(), false, errorMessage);

@@ -80,6 +80,7 @@ export class EnhancedProductDiscovery {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   private readonly RIVERPARK_BASE_URL = 'https://riverpark-catalyst-fresh.vercel.app';
   private useDatabase = false; // Can be enabled for production caching
+  private useFileStorage = true; // Use cost-free file-based storage by default
 
   /**
    * Enable database caching for production use
@@ -106,6 +107,153 @@ export class EnhancedProductDiscovery {
    * Discover all fish products with no limits
    */
   async discoverAllFishProducts(options: ProductSearchOptions = {}): Promise<ProductDiscoveryResult> {
+    try {
+      // Use file-based storage if enabled (cost-free approach)
+      if (this.useFileStorage) {
+        return this.discoverFishProductsFromFiles(options);
+      }
+
+      // Fallback to external API approach
+      return this.discoverFishProductsFromAPI(options);
+    } catch (error) {
+      console.error('Error discovering fish products:', error);
+      throw new Error(`Failed to discover products: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Discover fish products from local JSON files (cost-free)
+   */
+  private async discoverFishProductsFromFiles(options: ProductSearchOptions = {}): Promise<ProductDiscoveryResult> {
+    try {
+      // Import file storage dynamically to avoid server-side issues
+      const { FileProductStorage } = await import('./file-product-storage');
+      
+      // Get ALL fish products from static files (real BigCommerce data)
+      const allProducts = await FileProductStorage.getFishProducts();
+      
+      // Convert to EnhancedProduct format
+      const enhancedProducts: EnhancedProduct[] = allProducts.map(product => ({
+        entityId: product.entityId,
+        name: product.name,
+        path: product.path || `/products/${product.entityId}`,
+        brand: product.brand,
+        prices: {
+          price: { value: product.price, currencyCode: 'GBP' },
+          salePrice: null
+        },
+        defaultImage: product.defaultImage,
+        categories: product.categories,
+        sku: product.sku || undefined,
+        description: product.description || undefined,
+        customFields: product.customFields,
+        inventory: {
+          isInStock: product.isVisible,
+          hasVariantInventory: false
+        },
+        dateCreated: product.dateCreated,
+        dateModified: product.dateModified,
+        isVisible: product.isVisible
+      }));
+
+      // Collect metadata for filtering
+      const categories = new Set<string>();
+      const brands = new Set<string>();
+      let minPrice = Infinity;
+      let maxPrice = 0;
+
+      enhancedProducts.forEach(product => {
+        product.categories?.forEach(cat => categories.add(cat));
+        if (product.brand?.name) brands.add(product.brand.name);
+        
+        const price = product.prices.price.value;
+        if (price < minPrice) minPrice = price;
+        if (price > maxPrice) maxPrice = price;
+      });
+
+      // Apply user filtering
+      let filteredProducts = enhancedProducts;
+
+      if (options.searchTerm) {
+        const term = options.searchTerm.toLowerCase();
+        filteredProducts = filteredProducts.filter(product =>
+          product.name.toLowerCase().includes(term) ||
+          product.sku?.toLowerCase().includes(term) ||
+          product.description?.toLowerCase().includes(term)
+        );
+      }
+
+      if (options.categories?.length) {
+        filteredProducts = filteredProducts.filter(product =>
+          product.categories?.some(cat => 
+            options.categories!.some(filterCat => cat.toLowerCase().includes(filterCat.toLowerCase()))
+          )
+        );
+      }
+
+      if (options.brands?.length) {
+        filteredProducts = filteredProducts.filter(product =>
+          product.brand?.name && options.brands!.includes(product.brand.name)
+        );
+      }
+
+      if (options.priceRange) {
+        filteredProducts = filteredProducts.filter(product => {
+          const price = product.prices.price.value;
+          return price >= options.priceRange!.min && price <= options.priceRange!.max;
+        });
+      }
+
+      // Apply sorting
+      if (options.sortBy) {
+        filteredProducts.sort((a, b) => {
+          const order = options.sortOrder === 'desc' ? -1 : 1;
+          
+          switch (options.sortBy) {
+            case 'name':
+              return order * a.name.localeCompare(b.name);
+            case 'price':
+              return order * (a.prices.price.value - b.prices.price.value);
+            case 'dateCreated':
+              return order * (new Date(a.dateCreated || '').getTime() - new Date(b.dateCreated || '').getTime());
+            case 'dateModified':
+              return order * (new Date(a.dateModified || '').getTime() - new Date(b.dateModified || '').getTime());
+            default:
+              return 0;
+          }
+        });
+      }
+
+      // Apply pagination
+      const offset = options.offset || 0;
+      const limit = options.limit || filteredProducts.length;
+      const paginatedProducts = filteredProducts.slice(offset, offset + limit);
+
+      return {
+        products: paginatedProducts,
+        totalCount: filteredProducts.length,
+        hasMore: offset + limit < filteredProducts.length,
+        categories: Array.from(categories).sort(),
+        brands: Array.from(brands).sort(),
+        priceRange: {
+          min: minPrice === Infinity ? 0 : minPrice,
+          max: maxPrice
+        },
+        lastSyncTime: new Date().toISOString(),
+        source: 'bigcommerce-api'
+      };
+
+    } catch (error) {
+      console.error('Error loading products from files:', error);
+      // Fallback to API approach if file loading fails
+      return this.discoverFishProductsFromAPI(options);
+    }
+  }
+
+  /**
+   * Discover fish products from external API (fallback)
+   */
+  private async discoverFishProductsFromAPI(options: ProductSearchOptions = {}): Promise<ProductDiscoveryResult> {
     try {
       // Use multiple search strategies to get comprehensive results
       const fishSearchTerms = [
