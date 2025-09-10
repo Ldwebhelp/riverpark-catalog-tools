@@ -74,6 +74,7 @@ export default function ProductsPage() {
       const term = filters.searchTerm.toLowerCase();
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(term) ||
+        product.entityId.toString().includes(term) ||
         product.sku?.toLowerCase().includes(term) ||
         product.description?.toLowerCase().includes(term) ||
         product.brand?.name.toLowerCase().includes(term)
@@ -207,7 +208,7 @@ export default function ProductsPage() {
                   type="text"
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
-                  placeholder="Search by name, SKU, or description..."
+                  placeholder="Search by name, Product ID, SKU, or description..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>

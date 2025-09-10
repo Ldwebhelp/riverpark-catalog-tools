@@ -328,6 +328,7 @@ Never touch electrical equipment with wet hands. Always unplug heaters before ma
         panel.title.toLowerCase().includes(term) ||
         panel.content.toLowerCase().includes(term) ||
         panel.shortDescription.toLowerCase().includes(term) ||
+        panel.relatedProducts?.some(productId => productId.includes(term)) ||
         panel.tags.some(tag => tag.toLowerCase().includes(term)) ||
         panel.category.toLowerCase().includes(term)
       );
@@ -523,7 +524,7 @@ Never touch electrical equipment with wet hands. Always unplug heaters before ma
                   type="text"
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
-                  placeholder="Search by title, content, or tags..."
+                  placeholder="Search by title, content, Product ID, or tags..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>

@@ -280,7 +280,7 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
                   value={globalSearch}
                   onChange={(e) => setGlobalSearch(e.target.value)}
                   onKeyDown={handleGlobalSearch}
-                  placeholder="Search pages... (type to filter, Enter to navigate)"
+                  placeholder="Search pages and Product IDs... (type to filter, Enter to navigate)"
                   className="flex-1 text-lg border-none outline-none bg-transparent"
                   autoFocus
                 />

@@ -146,6 +146,7 @@ export default function CareGuidesPage() {
         guide.title.toLowerCase().includes(term) ||
         guide.species.toLowerCase().includes(term) ||
         guide.scientificName.toLowerCase().includes(term) ||
+        guide.productId?.includes(term) ||
         guide.tags.some(tag => tag.toLowerCase().includes(term))
       );
     }
@@ -299,7 +300,7 @@ export default function CareGuidesPage() {
                   type="text"
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
-                  placeholder="Search by species, title, or tags..."
+                  placeholder="Search by species, title, Product ID, or tags..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
