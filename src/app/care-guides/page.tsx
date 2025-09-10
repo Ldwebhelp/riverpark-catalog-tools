@@ -249,19 +249,13 @@ export default function CareGuidesPage() {
     <WebAppLayout>
       <div className="p-6 space-y-6">
         
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Page Actions */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Care Guides</h1>
-              <p className="text-gray-600 mt-1">
-                Comprehensive species care documentation with {guides.length} guides available
-              </p>
+            <div className="text-sm text-gray-600">
+              Showing {filteredGuides.length} of {guides.length} care guides
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                Showing {filteredGuides.length} guides
-              </div>
+            <div className="flex items-center space-x-3">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"

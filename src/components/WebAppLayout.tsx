@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 interface WebAppLayoutProps {
   children: React.ReactNode;
@@ -63,7 +63,63 @@ const navigationItems: NavItem[] = [
 
 export default function WebAppLayout({ children }: WebAppLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [showQuickNav, setShowQuickNav] = useState(false);
+
+  // Get current page info
+  const currentPage = navigationItems.find(item => item.href === pathname);
+  
+  // Generate breadcrumbs
+  const generateBreadcrumbs = () => {
+    const segments = pathname.split('/').filter(Boolean);
+    const breadcrumbs = [{ label: 'Dashboard', href: '/' }];
+    
+    if (segments.length > 0) {
+      const currentItem = navigationItems.find(item => item.href === pathname);
+      if (currentItem) {
+        breadcrumbs.push({ label: currentItem.label, href: pathname });
+      }
+    }
+    
+    return breadcrumbs;
+  };
+
+  // Quick navigation handler
+  const handleGlobalSearch = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && globalSearch.trim()) {
+      const matchedItem = navigationItems.find(item => 
+        item.label.toLowerCase().includes(globalSearch.toLowerCase()) ||
+        item.description.toLowerCase().includes(globalSearch.toLowerCase())
+      );
+      
+      if (matchedItem) {
+        router.push(matchedItem.href);
+        setGlobalSearch('');
+        setShowQuickNav(false);
+      }
+    }
+    
+    if (e.key === 'Escape') {
+      setGlobalSearch('');
+      setShowQuickNav(false);
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + K for quick navigation
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowQuickNav(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -87,6 +143,18 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
         </div>
         
         <div className="flex items-center space-x-4">
+          {/* Quick Navigation Search */}
+          <div className="relative">
+            <button
+              onClick={() => setShowQuickNav(true)}
+              className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <span>🔍</span>
+              <span>Quick Nav</span>
+              <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded">⌘K</span>
+            </button>
+          </div>
+          
           <div className="text-sm text-gray-500">
             Database: <span className="text-green-600 font-medium">Connected</span>
           </div>
@@ -159,6 +227,38 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-auto">
+          {/* Breadcrumbs */}
+          {currentPage && (
+            <div className="bg-white border-b border-gray-200 px-6 py-3">
+              <div className="flex items-center space-x-2 text-sm">
+                {generateBreadcrumbs().map((crumb, index) => (
+                  <div key={crumb.href} className="flex items-center space-x-2">
+                    {index > 0 && <span className="text-gray-400">›</span>}
+                    <Link
+                      href={crumb.href}
+                      className={`${
+                        index === generateBreadcrumbs().length - 1
+                          ? 'text-gray-900 font-medium'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {crumb.label}
+                    </Link>
+                  </div>
+                ))}
+              </div>
+              {currentPage && (
+                <div className="mt-1">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+                    <span>{currentPage.icon}</span>
+                    <span>{currentPage.label}</span>
+                  </h2>
+                  <p className="text-sm text-gray-600">{currentPage.description}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="h-full">
             {children}
           </div>
@@ -177,6 +277,70 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
           </div>
         </div>
       </footer>
+
+      {/* Quick Navigation Modal */}
+      {showQuickNav && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-20 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <span className="text-lg">🔍</span>
+                <input
+                  type="text"
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  onKeyDown={handleGlobalSearch}
+                  placeholder="Search pages... (type to filter, Enter to navigate)"
+                  className="flex-1 text-lg border-none outline-none bg-transparent"
+                  autoFocus
+                />
+                <button
+                  onClick={() => setShowQuickNav(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <span className="text-lg">×</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="max-h-80 overflow-y-auto">
+              {navigationItems
+                .filter(item => 
+                  !globalSearch || 
+                  item.label.toLowerCase().includes(globalSearch.toLowerCase()) ||
+                  item.description.toLowerCase().includes(globalSearch.toLowerCase())
+                )
+                .map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      router.push(item.href);
+                      setShowQuickNav(false);
+                      setGlobalSearch('');
+                    }}
+                    className="w-full text-left p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="text-xl">{item.icon}</span>
+                      <div>
+                        <div className="font-medium text-gray-900">{item.label}</div>
+                        <div className="text-sm text-gray-600">{item.description}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+            </div>
+            
+            <div className="p-3 bg-gray-50 text-xs text-gray-600 border-t border-gray-200">
+              <div className="flex justify-between">
+                <span>↑↓ Navigate</span>
+                <span>Enter to select</span>
+                <span>Esc to close</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

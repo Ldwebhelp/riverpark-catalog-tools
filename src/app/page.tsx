@@ -111,14 +111,11 @@ export default function DashboardPage() {
     <WebAppLayout>
       <div className="p-6 space-y-6">
         
-        {/* Dashboard Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Page Actions */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-              <p className="text-gray-600 mt-1">
-                Professional aquarium business management platform with AI-powered tools
-              </p>
+            <div className="text-sm text-gray-600">
+              Professional aquarium business management platform with AI-powered tools
             </div>
             <button
               onClick={loadDashboardData}

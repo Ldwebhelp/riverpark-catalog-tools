@@ -166,27 +166,19 @@ export default function ProductsPage() {
     <WebAppLayout>
       <div className="p-6 space-y-6">
         
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Page Actions */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Product Details</h1>
-              <p className="text-gray-600 mt-1">
-                Comprehensive database of {products.length.toLocaleString()} aquarium products
-              </p>
+            <div className="text-sm text-gray-600">
+              Showing {filteredProducts.length.toLocaleString()} of {products.length.toLocaleString()} products
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                Showing {filteredProducts.length.toLocaleString()} products
-              </div>
-              <button
-                onClick={loadProducts}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
-              >
-                <span>🔄</span>
-                <span>Refresh</span>
-              </button>
-            </div>
+            <button
+              onClick={loadProducts}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
+            >
+              <span>🔄</span>
+              <span>Refresh</span>
+            </button>
           </div>
         </div>
 
