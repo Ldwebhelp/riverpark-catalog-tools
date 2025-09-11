@@ -28,47 +28,51 @@ export async function POST(request: NextRequest) {
 
     if (autoSave) {
       let localFileName: string;
-      let catalystFileName: string;
-      let catalystSubDir: string;
 
       // Determine file naming based on content type
       if (contentType === 'species') {
         localFileName = `species-data-${productId}.json`;
-        catalystFileName = `${productId}-species.json`;
-        catalystSubDir = 'species';
       } else {
         localFileName = `ai-search-data-${productId}.json`;
-        catalystFileName = `${productId}-ai-search.json`;
-        catalystSubDir = 'ai-search';
       }
       
       // Local storage path (current project)
       localFilePath = path.join(process.cwd(), 'generated-content', localFileName);
       
-      // Catalyst project path - using the correct directory and naming convention
-      const catalystBasePath = '/Users/lindsay/GitHub/riverpark-catalyst-fresh';
-      catalystFilePath = path.join(catalystBasePath, 'frontend', 'content', catalystSubDir, catalystFileName);
-      
-      // Also save to public directory for static file serving
-      const catalystPublicFilePath = path.join(catalystBasePath, 'frontend', 'public', 'content', catalystSubDir, catalystFileName);
-
       // Ensure directories exist
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
-      await fs.mkdir(path.dirname(catalystFilePath), { recursive: true });
-      await fs.mkdir(path.dirname(catalystPublicFilePath), { recursive: true });
 
-      // Save to all locations
+      // Save to local location only (remove hardcoded catalyst paths)
       const jsonContent = JSON.stringify(contentData, null, 2);
-      await Promise.all([
-        fs.writeFile(localFilePath, jsonContent, 'utf8'),
-        fs.writeFile(catalystFilePath, jsonContent, 'utf8'),
-        fs.writeFile(catalystPublicFilePath, jsonContent, 'utf8')
-      ]);
+      await fs.writeFile(localFilePath, jsonContent, 'utf8');
 
-      console.log(`✅ Saved files to:`);
-      console.log(`   Local: ${localFilePath}`);
-      console.log(`   Catalyst: ${catalystFilePath}`);
-      console.log(`   Catalyst Public: ${catalystPublicFilePath}`);
+      console.log(`✅ Saved file locally: ${localFilePath}`);
+
+      // Send content to catalyst project via API (production-safe)
+      try {
+        const catalystApiUrl = process.env.CATALYST_API_URL || 'https://riverpark-catalyst-fresh.vercel.app';
+        const sendResponse = await fetch(`${catalystApiUrl}/api/ai/save-ai-content`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: productId,
+            contentType: contentType,
+            fileName: contentType === 'species' ? `${productId}-species.json` : `${productId}-ai-search.json`,
+            content: contentData
+          })
+        });
+
+        if (sendResponse.ok) {
+          console.log(`✅ Successfully sent content to catalyst project via API`);
+        } else {
+          console.log(`⚠️ Failed to send content to catalyst project: ${sendResponse.status}`);
+        }
+      } catch (apiError) {
+        console.log(`⚠️ Could not send content to catalyst project:`, apiError);
+        // This is non-blocking - local storage still works
+      }
     }
 
     // Store in database (optional - gracefully skip if not configured)
