@@ -5,7 +5,8 @@
   "basicInfo": {
     "scientificName": "Protomelas taeniolatus",
     "commonNames": [
-      "Red Empress Cichlid"
+      "Red Empress Cichlid",
+      "Spindle Hap"
     ],
     "category": "Lake Malawi Cichlid",
     "family": "Cichlidae",
@@ -16,100 +17,102 @@
     "Red Empress Cichlid",
     "Protomelas taeniolatus",
     "Lake Malawi Cichlid",
-    "African Cichlid",
+    "peaceful cichlid",
+    "red cichlid",
+    "African cichlid",
     "freshwater cichlid",
-    "colourful cichlid",
-    "intermediate fish care",
-    "semi-aggressive cichlid",
-    "15 cm cichlid",
-    "cichlid for 200L tank",
-    "cichlid with rocky habitat",
-    "omnivorous cichlid",
-    "cichlid with bright colours",
-    "cichlid for community tank"
+    "cichlid care",
+    "beginner cichlid",
+    "colorful cichlid",
+    "Protomelas species",
+    "spindle hap",
+    "easy care fish",
+    "community cichlid",
+    "aquarium fish"
   ],
   "careRequirements": {
     "minTankSize": "200L",
     "temperatureRange": "24-28°C",
-    "phRange": "7.8-8.6",
-    "maxSize": "15 cm",
+    "phRange": "7.5-8.5",
+    "maxSize": "15cm",
     "diet": "Omnivore",
     "careLevel": "Intermediate",
-    "temperament": "Semi-aggressive",
+    "temperament": "Peaceful",
     "socialNeeds": "Group of 3+",
-    "lifespan": "8-10 years"
+    "lifespan": "5-10 years"
   },
   "compatibility": {
     "compatibleWith": [
-      "Synodontis catfish",
-      "other Malawi cichlids",
-      "non-aggressive cichlids"
+      "Yellow Lab Cichlid",
+      "Peacock Cichlid",
+      "Synodontis Catfish"
     ],
     "avoidWith": [
-      "smaller timid fish",
-      "overly aggressive fish",
-      "fin-nipping species"
+      "Mbuna Cichlids",
+      "Aggressive Cichlids",
+      "Large Predatory Fish"
     ],
     "tankMateCategories": [
-      "Malawi cichlids",
-      "peaceful catfish"
+      "Peaceful Cichlids",
+      "Community Fish",
+      "Bottom Dwellers"
     ]
   },
   "aiContext": {
-    "whyPopular": "The Red Empress Cichlid is popular for its vibrant colours and dynamic behaviour.",
+    "whyPopular": "The Red Empress Cichlid is popular due to its vibrant red coloration and relatively peaceful nature, making it a striking addition to community cichlid tanks.",
     "keySellingPoints": [
-      "Stunning colouration",
-      "Active swimmer",
-      "Intermediate care level",
-      "Compatible with other Malawi cichlids",
-      "Long lifespan",
-      "Unique territorial behaviour"
+      "Stunning red coloration",
+      "Peaceful temperament",
+      "Suitable for intermediate aquarists",
+      "Vibrant addition to community tanks",
+      "Relatively easy to care for",
+      "Compatible with other peaceful cichlids"
     ],
     "commonQuestions": [
       {
         "question": "Are Red Empress Cichlids aggressive?",
-        "answer": "Red Empress Cichlids are semi-aggressive, especially during breeding, and require ample space."
+        "answer": "Red Empress Cichlids are generally peaceful but can be territorial during breeding."
       },
       {
         "question": "What tank mates work with Red Empress Cichlids?",
-        "answer": "They are compatible with similar-sized, non-aggressive cichlids and peaceful species like Synodontis catfish."
+        "answer": "They do well with other peaceful cichlids like Yellow Labs and Peacock Cichlids."
       },
       {
         "question": "What size tank do Red Empress Cichlids need?",
-        "answer": "A minimum tank size of 200 litres is recommended for a small group."
+        "answer": "A minimum of 200 litres is recommended for a small group."
       },
       {
         "question": "Are Red Empress Cichlids good for beginners?",
-        "answer": "They are suitable for intermediate aquarists due to their specific care requirements."
+        "answer": "They are suitable for intermediate aquarists due to specific water parameter needs."
       }
     ],
     "alternativeNames": [
-      "Protomelas taeniolatus",
-      "Empress Cichlid"
+      "Spindle Hap",
+      "Protomelas species"
     ]
   },
   "relatedProducts": {
     "complementaryProducts": [
-      "High-quality cichlid pellets",
-      "Aquarium filter with strong flow",
-      "pH stabilisers",
-      "Rocky aquarium decorations",
-      "Aquarium heater"
+      "Cichlid pellets",
+      "Aquarium heater",
+      "Water conditioner",
+      "Rock decorations",
+      "Cichlid tank filter"
     ],
     "similarSpecies": [
-      "Aulonocara baenschi",
-      "Cyrtocara moorii",
-      "Labidochromis caeruleus"
+      "Peacock Cichlid",
+      "Yellow Lab Cichlid",
+      "Blue Dolphin Cichlid"
     ]
   },
   "breeding": {
     "breedingType": "Mouthbrooder",
     "breedingDifficulty": "Moderate",
-    "breedingNotes": "Females hold eggs in their mouth until they hatch, requiring a separate breeding tank for fry."
+    "breedingNotes": "Females carry eggs and fry in their mouths for protection."
   },
   "metadata": {
-    "generatedAt": "2025-09-11T10:37:56.055Z",
-    "lastUpdated": "2025-09-11T10:37:56.055Z",
+    "generatedAt": "12/09/2025 00:30:37",
+    "lastUpdated": "12/09/2025 00:30:37",
     "confidence": "high",
     "sources": [
       "BigCommerce Product Data",

@@ -95,6 +95,8 @@ interface SpeciesData {
   productId: number;
   type: string;
   version: string;
+  title: string;
+  quickReference: string[];
   basicInfo: {
     scientificName: string;
     commonNames: string[];
@@ -418,10 +420,23 @@ function extractCommonName(productName: string): string | null {
 
 // Create species data from AI search data (Quick Reference content)
 function createSpeciesData(aiSearchData: AISearchData): SpeciesData {
+  // Create Quick Reference bullet points from AI search data
+  const quickReference = [
+    `Minimum tank size: ${aiSearchData.careRequirements.minTankSize} for a small group`,
+    `Ideal pH: ${aiSearchData.careRequirements.phRange} (${aiSearchData.basicInfo.category} conditions)`,
+    `Temperature: ${aiSearchData.careRequirements.temperatureRange} consistently maintained`,
+    `Diet: ${aiSearchData.careRequirements.diet} - quality pellets plus variety`,
+    `Social: ${aiSearchData.careRequirements.socialNeeds} for best results`,
+    `Compatibility: ${aiSearchData.careRequirements.temperament} with other ${aiSearchData.basicInfo.category}`,
+    `Breeding: ${aiSearchData.breeding.breedingType} - ${aiSearchData.breeding.breedingDifficulty.toLowerCase()}`
+  ];
+
   return {
     productId: aiSearchData.productId,
     type: 'species',
     version: '1.0',
+    title: 'Quick Reference',
+    quickReference: quickReference,
     basicInfo: aiSearchData.basicInfo,
     careRequirements: aiSearchData.careRequirements,
     compatibility: aiSearchData.compatibility,

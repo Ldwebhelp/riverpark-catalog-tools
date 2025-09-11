@@ -48,21 +48,27 @@ export async function POST(request: NextRequest) {
       // Catalyst project path - using the correct directory and naming convention
       const catalystBasePath = '/Users/lindsay/GitHub/riverpark-catalyst-fresh';
       catalystFilePath = path.join(catalystBasePath, 'frontend', 'content', catalystSubDir, catalystFileName);
+      
+      // Also save to public directory for static file serving
+      const catalystPublicFilePath = path.join(catalystBasePath, 'frontend', 'public', 'content', catalystSubDir, catalystFileName);
 
       // Ensure directories exist
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
       await fs.mkdir(path.dirname(catalystFilePath), { recursive: true });
+      await fs.mkdir(path.dirname(catalystPublicFilePath), { recursive: true });
 
-      // Save to both locations
+      // Save to all locations
       const jsonContent = JSON.stringify(contentData, null, 2);
       await Promise.all([
         fs.writeFile(localFilePath, jsonContent, 'utf8'),
-        fs.writeFile(catalystFilePath, jsonContent, 'utf8')
+        fs.writeFile(catalystFilePath, jsonContent, 'utf8'),
+        fs.writeFile(catalystPublicFilePath, jsonContent, 'utf8')
       ]);
 
       console.log(`✅ Saved files to:`);
       console.log(`   Local: ${localFilePath}`);
       console.log(`   Catalyst: ${catalystFilePath}`);
+      console.log(`   Catalyst Public: ${catalystPublicFilePath}`);
     }
 
     // Store in database (optional - gracefully skip if not configured)
