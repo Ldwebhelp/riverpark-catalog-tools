@@ -25,21 +25,29 @@ riverpark-catalog-tools/
 │   │   ├── page.tsx            # Dashboard homepage
 │   │   ├── species/            # Species data generator
 │   │   │   └── page.tsx
+│   │   ├── ai-species/         # 🤖 Enhanced AI Species Generator
+│   │   │   └── page.tsx
+│   │   ├── ai-search/          # 🔍 AI Search Data Generator
+│   │   │   └── page.tsx
 │   │   ├── guides/             # Basic care guide generator
 │   │   │   └── page.tsx
 │   │   ├── ai-guides/          # 🤖 AI-Enhanced Care Guide Generator
 │   │   │   └── page.tsx
 │   │   └── api/                # API endpoints
-│   │       └── health/
+│   │       ├── health/
+│   │       └── ai-search-generator/  # 🔍 AI search data generation
 │   ├── components/             # Reusable UI components
 │   │   ├── SpeciesGenerator.tsx
 │   │   ├── CareGuideGenerator.tsx
-│   │   └── AIEnhancedCareGuideGenerator.tsx  # 🚀 Revolutionary AI system
+│   │   ├── EnhancedAISpeciesGenerator.tsx   # 🚀 Enhanced species system
+│   │   ├── AISearchGenerator.tsx            # 🔍 AI search data system
+│   │   └── AIEnhancedCareGuideGenerator.tsx # 🚀 Revolutionary AI system
 │   ├── lib/                    # Utilities and business logic
 │   │   ├── speciesDatabase.ts  # 50+ species database
 │   │   ├── database.ts         # Data persistence layer
-│   │   ├── bigcommerce-discovery.ts    # 🤖 Product discovery service
-│   │   └── ai-product-matcher.ts       # 🧠 AI matching engine
+│   │   ├── enhanced-product-discovery.ts   # 🤖 Advanced product discovery
+│   │   ├── bigcommerce-discovery.ts        # 🤖 Product discovery service
+│   │   └── ai-product-matcher.ts           # 🧠 AI matching engine
 │   ├── types/                  # TypeScript type definitions
 │   │   └── catalog.ts          # Enhanced with AI recommendation types
 │   └── app/
@@ -65,6 +73,26 @@ curl http://localhost:3000/api/health  # Test API health endpoint
 ```
 
 ## Key Features
+
+### 🔍 AI Search Data Generator (NEW!)
+**Revolutionary AI search optimization system for enhanced product discoverability**
+- **Comprehensive Search Data**: Generates extensive search keywords and AI context
+- **Care Requirements**: Complete care specifications with UK metric measurements
+- **Compatibility Intelligence**: Tank mate suggestions and species to avoid
+- **AI Context Generation**: Why popular, key selling points, common customer questions
+- **Related Products**: Complementary products and similar species recommendations
+- **Breeding Information**: Breeding type, difficulty, and detailed notes
+- **Metadata & Confidence**: Complete tracking with confidence scoring and sources
+- **Exact JSON Structure**: Produces the precise format specified for search optimization
+
+### 🤖 Enhanced AI Species Generator
+**Advanced species data generation with real BigCommerce integration**
+- **Real Product Data**: Fetches actual BigCommerce product information
+- **AI-Powered Generation**: Uses OpenAI to create accurate species data
+- **Comprehensive Tracking**: Status management and notifications system
+- **Enhanced Product Discovery**: Advanced filtering and search capabilities
+- **Database Integration**: Vercel database for persistent status tracking
+- **Professional UI**: Split-panel interface with real-time generation
 
 ### 🤖 AI-Enhanced Care Guide Generator (REVOLUTIONARY)
 **World's first AI product recommendation system for aquarium care guides**
@@ -197,8 +225,34 @@ Response: {
   features: { 
     speciesGenerator: true,
     careGuides: true,
-    aiRecommendations: true  // 🤖 AI system ready
+    aiRecommendations: true,    // 🤖 AI system ready
+    aiSearchGenerator: true     // 🔍 NEW: AI search data generation
   }
+}
+```
+
+### AI Search Data Generator
+```
+POST /api/ai-search-generator
+Request: {
+  productId: "113",
+  name: "Electric Yellow Cichlid (Labidochromis caeruleus) 5cm",
+  scientificName: "Labidochromis caeruleus",
+  commonName: "Electric Yellow Cichlid",
+  provider: "openai"
+}
+Response: {
+  productId: 113,
+  type: "ai-search",
+  version: "1.0",
+  basicInfo: { ... },
+  searchKeywords: [ ... ],
+  careRequirements: { ... },
+  compatibility: { ... },
+  aiContext: { ... },
+  relatedProducts: { ... },
+  breeding: { ... },
+  metadata: { ... }
 }
 ```
 
@@ -212,6 +266,66 @@ GET  /api/ai/analytics          # AI performance metrics
 ```
 
 ## AI-Enhanced JSON Output Format
+
+### AI Search Data Structure (NEW!)
+```json
+{
+  "productId": 113,
+  "type": "ai-search",
+  "version": "1.0",
+  "basicInfo": {
+    "scientificName": "Labidochromis caeruleus",
+    "commonNames": ["Electric Yellow Cichlid", "Electric Yellow Lab", "Yellow Lab Cichlid"],
+    "category": "Lake Malawi Cichlid",
+    "family": "Cichlidae",
+    "origin": "Lake Malawi, Africa",
+    "waterType": "Freshwater"
+  },
+  "searchKeywords": [
+    "yellow cichlid", "malawi cichlid", "african cichlid", "electric yellow",
+    "lab cichlid", "labidochromis", "peaceful cichlid", "beginner cichlid"
+  ],
+  "careRequirements": {
+    "minTankSize": "120L",
+    "temperatureRange": "24-28°C",
+    "phRange": "7.5-8.5",
+    "maxSize": "10cm",
+    "diet": "Omnivore",
+    "careLevel": "Beginner",
+    "temperament": "Semi-aggressive",
+    "socialNeeds": "Group of 3+",
+    "lifespan": "5-8 years"
+  },
+  "compatibility": {
+    "compatibleWith": ["Peacock Cichlids", "Other Labidochromis species"],
+    "avoidWith": ["Very aggressive Mbuna", "Small tropical fish"],
+    "tankMateCategories": ["Lake Malawi Cichlids", "African Cichlids"]
+  },
+  "aiContext": {
+    "whyPopular": "One of the most peaceful Lake Malawi cichlids with stunning bright yellow colouration",
+    "keySellingPoints": ["Brilliant yellow colouration", "Peaceful temperament for a cichlid"],
+    "commonQuestions": [
+      {"question": "Are Electric Yellow Cichlids aggressive?", "answer": "They are among the most peaceful Lake Malawi cichlids"}
+    ],
+    "alternativeNames": ["Yellow Lab", "Electric Yellow Lab", "Labido"]
+  },
+  "relatedProducts": {
+    "complementaryProducts": ["Lake Malawi Cichlid Mix Food", "African Cichlid Sand Substrate"],
+    "similarSpecies": ["Pseudotropheus saulosi", "Peacock Cichlids"]
+  },
+  "breeding": {
+    "breedingType": "Maternal Mouthbrooder",
+    "breedingDifficulty": "Moderate",
+    "breedingNotes": "Females hold eggs and fry in mouth for 3-4 weeks"
+  },
+  "metadata": {
+    "generatedAt": "2024-09-11T12:00:00Z",
+    "lastUpdated": "2024-09-11T12:00:00Z",
+    "confidence": "high",
+    "sources": ["Species database", "Aquarium care guides", "Customer feedback"]
+  }
+}
+```
 
 ### Enhanced Care Guide Structure
 ```json
@@ -296,7 +410,22 @@ class BigCommerceDiscovery {
 
 ## AI System Usage Guide
 
-### Quick Start
+### AI Search Data Generator (NEW!)
+1. **Access AI Search System**: Navigate to `/ai-search`
+2. **Select Products**: Choose from real BigCommerce product catalog
+3. **Generate AI Search Data**: Click "Generate AI Search" for comprehensive data
+4. **Review Generated Content**: Search keywords, care requirements, compatibility
+5. **Download Results**: Complete AI search JSON with exact structure specified
+6. **Auto-Save**: Data automatically saved to riverpark-catalyst-fresh content directory
+
+### Enhanced AI Species Generator
+1. **Access Enhanced System**: Navigate to `/ai-species`
+2. **Browse Products**: Real BigCommerce product integration with filtering
+3. **Generate Species Data**: AI-powered generation with OpenAI
+4. **Track Status**: Database tracking of generated files and errors
+5. **Download & Export**: Professional JSON output with comprehensive data
+
+### AI-Enhanced Care Guides
 1. **Access AI System**: Navigate to `/ai-guides` 
 2. **Upload Species Data**: JSON from Species Generator
 3. **Enable AI Features**: Toggle product recommendations and smart bundles
@@ -343,15 +472,19 @@ Bundle Creation → UK Optimization → Success Prediction → Enhanced Export
 
 ### Phase 1: Foundation (Complete ✅)
 - AI-Enhanced Care Guide Generator deployed
+- Enhanced AI Species Generator with real BigCommerce integration
+- AI Search Data Generator with comprehensive search optimization
 - Product recommendation engine operational
 - Smart bundling system functional
 - UK-specific intelligence integrated
+- Complete cross-project integration with riverpark-catalyst-fresh
 
 ### Phase 2: Production Integration (Next Steps)
 - Replace mock data with real BigCommerce API
 - Deploy to riverpark-catalyst-fresh main project
 - Add customer feedback collection
 - Monitor sales impact metrics
+- Scale AI search data generation across full product catalog
 
 ### Phase 3: Machine Learning Evolution
 - Implement learning algorithms based on customer data
