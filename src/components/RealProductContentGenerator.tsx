@@ -168,12 +168,13 @@ export default function RealProductContentGenerator() {
 
   // Update storage info for a specific file type
   const updateStorageInfo = (fileType: 'aiSearch' | 'species', data: { local?: string; catalyst?: string; saved: boolean }) => {
-    setStorageInfo(prev => ({
-      ...prev,
-      database: prev?.database || false,
-      [fileType]: data,
-      ...(prev || initializeStorageInfo())
-    }));
+    setStorageInfo(prev => {
+      const current = prev || initializeStorageInfo();
+      return {
+        ...current,
+        [fileType]: data
+      };
+    });
   };
 
   // Save files individually to track each one
