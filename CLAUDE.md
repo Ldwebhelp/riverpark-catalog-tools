@@ -334,8 +334,8 @@ GET  /api/species-status/[id]    # Get generation status for product
     "breedingNotes": "Females hold eggs and fry in mouth for 3-4 weeks"
   },
   "metadata": {
-    "generatedAt": "2024-09-11T12:00:00Z",
-    "lastUpdated": "2024-09-11T12:00:00Z",
+    "generatedAt": "11/09/2025 12:00:00",
+    "lastUpdated": "11/09/2025 12:00:00",
     "confidence": "high",
     "sources": ["Species database", "Aquarium care guides", "Customer feedback"]
   }

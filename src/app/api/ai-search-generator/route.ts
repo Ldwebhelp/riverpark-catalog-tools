@@ -266,8 +266,8 @@ async function generateWithOpenAI(request: GenerateAISearchRequest): Promise<AIS
         breedingNotes: 'Please consult species-specific breeding guides.'
       },
       metadata: {
-        generatedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
+        generatedAt: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-GB'),
+        lastUpdated: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-GB'),
         confidence: 'high',
         sources: ['BigCommerce Product Data', 'OpenAI GPT-4', 'Aquarium Care Databases']
       }
