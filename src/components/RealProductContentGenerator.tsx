@@ -105,7 +105,8 @@ export default function RealProductContentGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [storageInfo, setStorageInfo] = useState<{
     database: boolean;
-    paths: { local?: string; catalyst?: string };
+    aiSearch: { local?: string; catalyst?: string; saved?: boolean };
+    species: { local?: string; catalyst?: string; saved?: boolean };
   } | null>(null);
   const [resending, setResending] = useState(false);
   const [sendingToCatalyst, setSendingToCatalyst] = useState(false);
@@ -114,7 +115,11 @@ export default function RealProductContentGenerator() {
   const [productContentMap, setProductContentMap] = useState<Map<number, {
     aiContent: GeneratedContent;
     speciesContent: SpeciesContent;
-    storageInfo: { database: boolean; paths: { local?: string; catalyst?: string } } | null;
+    storageInfo: { 
+      database: boolean; 
+      aiSearch: { local?: string; catalyst?: string; saved?: boolean };
+      species: { local?: string; catalyst?: string; saved?: boolean };
+    } | null;
   }>>(new Map());
   
   // Track which products have generated content for badges
@@ -154,6 +159,85 @@ export default function RealProductContentGenerator() {
     };
   };
 
+  // Initialize storage info structure
+  const initializeStorageInfo = () => ({
+    database: false,
+    aiSearch: { saved: false },
+    species: { saved: false }
+  });
+
+  // Update storage info for a specific file type
+  const updateStorageInfo = (fileType: 'aiSearch' | 'species', data: { local?: string; catalyst?: string; saved: boolean }) => {
+    setStorageInfo(prev => ({
+      ...prev,
+      database: prev?.database || false,
+      [fileType]: data,
+      ...(prev || initializeStorageInfo())
+    }));
+  };
+
+  // Save files individually to track each one
+  const saveFilesIndividually = async (aiContent: GeneratedContent, speciesContent: SpeciesContent) => {
+    if (!selectedProduct) return;
+
+    try {
+      // Save AI search file
+      console.log('📄 Saving AI search file...');
+      const aiResponse = await fetch('/api/ai-content/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: aiContent.productId,
+          contentType: 'ai-search',
+          contentData: aiContent,
+          autoSave: true
+        }),
+      });
+
+      if (aiResponse.ok) {
+        const aiResult = await aiResponse.json();
+        updateStorageInfo('aiSearch', {
+          local: aiResult.paths?.local,
+          catalyst: aiResult.paths?.catalyst,
+          saved: true
+        });
+        console.log('✅ AI search file saved:', aiResult.paths);
+      } else {
+        updateStorageInfo('aiSearch', { saved: false });
+      }
+
+      // Save species file
+      console.log('🐟 Saving species file...');
+      const speciesResponse = await fetch('/api/ai-content/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: speciesContent.productId,
+          contentType: 'species',
+          contentData: speciesContent,
+          autoSave: true
+        }),
+      });
+
+      if (speciesResponse.ok) {
+        const speciesResult = await speciesResponse.json();
+        updateStorageInfo('species', {
+          local: speciesResult.paths?.local,
+          catalyst: speciesResult.paths?.catalyst,
+          saved: true
+        });
+        console.log('✅ Species file saved:', speciesResult.paths);
+      } else {
+        updateStorageInfo('species', { saved: false });
+      }
+
+    } catch (error) {
+      console.error('❌ Error saving files:', error);
+      updateStorageInfo('aiSearch', { saved: false });
+      updateStorageInfo('species', { saved: false });
+    }
+  };
+
   const handleProductSelect = (product: RealProduct) => {
     setSelectedProduct(product);
     setError(null);
@@ -176,6 +260,9 @@ export default function RealProductContentGenerator() {
 
     setGenerating(true);
     setError(null);
+    
+    // Initialize storage info for tracking both file saves
+    setStorageInfo(initializeStorageInfo());
 
     try {
       console.log('🤖 Generating AI content for product:', selectedProduct.name);
@@ -231,7 +318,7 @@ export default function RealProductContentGenerator() {
       newMap.set(selectedProduct.entityId, {
         aiContent: content,
         speciesContent: species,
-        storageInfo: null
+        storageInfo: initializeStorageInfo()
       });
       setProductContentMap(newMap);
       
@@ -241,6 +328,9 @@ export default function RealProductContentGenerator() {
       setProductsWithContent(newSet);
       
       console.log('✅ AI content generated successfully');
+      
+      // Save files individually to track progress
+      await saveFilesIndividually(content, species);
 
     } catch (err) {
       console.error('❌ Error generating content:', err);
@@ -266,95 +356,27 @@ export default function RealProductContentGenerator() {
     URL.revokeObjectURL(url);
   };
 
-  const handleResendToProductDetails = async () => {
-    if (!generatedContent) return;
+  const handleResendFiles = async () => {
+    if (!generatedContent || !speciesContent) return;
 
     setResending(true);
     try {
-      const response = await fetch('/api/ai-content/store', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: generatedContent.productId,
-          contentType: 'ai-search',
-          contentData: generatedContent,
-          autoSave: true
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Content resent successfully:', result);
-        const newStorageInfo = {
-          database: result.database,
-          paths: result.paths
-        };
-        setStorageInfo(newStorageInfo);
-        
-        // Update stored content with new storage info
-        if (selectedProduct && generatedContent && speciesContent) {
-          const newMap = new Map(productContentMap);
-          newMap.set(selectedProduct.entityId, {
-            aiContent: generatedContent,
-            speciesContent: speciesContent,
-            storageInfo: newStorageInfo
-          });
-          setProductContentMap(newMap);
-        }
-      } else {
-        console.error('❌ Failed to resend content');
-      }
+      await saveFilesIndividually(generatedContent, speciesContent);
     } catch (error) {
-      console.error('❌ Error resending content:', error);
+      console.error('❌ Error resending files:', error);
     } finally {
       setResending(false);
     }
   };
 
   const handleSendToCatalyst = async () => {
-    if (!generatedContent) return;
+    if (!generatedContent || !speciesContent) return;
 
     setSendingToCatalyst(true);
     try {
-      const response = await fetch('/api/ai-content/store', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: generatedContent.productId,
-          contentType: 'ai-search',
-          contentData: generatedContent,
-          autoSave: true
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Content sent to Catalyst project successfully:', result);
-        const newStorageInfo = {
-          database: result.database,
-          paths: result.paths
-        };
-        setStorageInfo(newStorageInfo);
-        
-        // Update stored content with new storage info
-        if (selectedProduct && generatedContent && speciesContent) {
-          const newMap = new Map(productContentMap);
-          newMap.set(selectedProduct.entityId, {
-            aiContent: generatedContent,
-            speciesContent: speciesContent,
-            storageInfo: newStorageInfo
-          });
-          setProductContentMap(newMap);
-        }
-      } else {
-        console.error('❌ Failed to send content to Catalyst project');
-      }
+      await saveFilesIndividually(generatedContent, speciesContent);
     } catch (error) {
-      console.error('❌ Error sending content to Catalyst:', error);
+      console.error('❌ Error sending files to Catalyst:', error);
     } finally {
       setSendingToCatalyst(false);
     }
@@ -526,7 +548,7 @@ export default function RealProductContentGenerator() {
                           </div>
                         </button>
                         <button
-                          onClick={handleResendToProductDetails}
+                          onClick={handleResendFiles}
                           disabled={resending}
                           className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -546,22 +568,59 @@ export default function RealProductContentGenerator() {
 
                     {/* Storage Status */}
                     <div className="mt-4 p-3 bg-white rounded-lg border border-green-200">
-                      <h5 className="text-green-800 font-medium mb-2 text-sm">Storage Status</h5>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${storageInfo?.database ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                          <span className="text-gray-700">Database: {storageInfo?.database ? 'Stored' : 'Saving...'}</span>
+                      <h5 className="text-green-800 font-medium mb-3 text-sm">File Storage Status</h5>
+                      
+                      {/* AI Search File Status */}
+                      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <div className={`w-3 h-3 rounded-full ${storageInfo?.aiSearch?.saved ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                          <span className="text-blue-800 font-medium text-sm">AI Search File</span>
+                          <span className="text-xs text-blue-600">({selectedProduct?.entityId || 'N/A'}-ai-search.json)</span>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${storageInfo?.paths?.catalyst ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                          <span className="text-gray-700">Catalyst Project: {storageInfo?.paths?.catalyst ? 'Saved' : 'Saving...'}</span>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Catalyst Project:</span>
+                            <span className={`font-medium ${storageInfo?.aiSearch?.saved ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {storageInfo?.aiSearch?.saved ? 'Saved' : 'Saving...'}
+                            </span>
+                          </div>
+                          {storageInfo?.aiSearch?.catalyst && (
+                            <div className="text-gray-500 font-mono break-all bg-white p-1 rounded text-xs">
+                              /frontend/content/ai-search/
+                            </div>
+                          )}
                         </div>
                       </div>
-                      {storageInfo?.paths?.catalyst && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 font-mono break-all">
-                          {storageInfo.paths.catalyst}
+
+                      {/* Species File Status */}
+                      <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <div className={`w-3 h-3 rounded-full ${storageInfo?.species?.saved ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                          <span className="text-purple-800 font-medium text-sm">Species File</span>
+                          <span className="text-xs text-purple-600">({selectedProduct?.entityId || 'N/A'}-species.json)</span>
                         </div>
-                      )}
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Catalyst Project:</span>
+                            <span className={`font-medium ${storageInfo?.species?.saved ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {storageInfo?.species?.saved ? 'Saved' : 'Saving...'}
+                            </span>
+                          </div>
+                          {storageInfo?.species?.catalyst && (
+                            <div className="text-gray-500 font-mono break-all bg-white p-1 rounded text-xs">
+                              /frontend/content/species/
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Database Status */}
+                      <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-2 h-2 rounded-full ${storageInfo?.database ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                          <span className="text-gray-700 text-xs">Database: {storageInfo?.database ? 'Stored' : 'Not configured'}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

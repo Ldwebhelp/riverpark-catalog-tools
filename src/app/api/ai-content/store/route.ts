@@ -65,35 +65,45 @@ export async function POST(request: NextRequest) {
       console.log(`   Catalyst: ${catalystFilePath}`);
     }
 
-    // Store in database
-    const dbContent = await VercelDatabase.storeAIContent(
-      parseInt(productId),
-      contentType,
-      contentData,
-      catalystFilePath || undefined,
-      contentData.metadata?.confidence || 'medium',
-      'openai'
-    );
+    // Store in database (optional - gracefully skip if not configured)
+    let dbContent = null;
+    try {
+      dbContent = await VercelDatabase.storeAIContent(
+        parseInt(productId),
+        contentType,
+        contentData,
+        catalystFilePath || undefined,
+        contentData.metadata?.confidence || 'medium',
+        'openai'
+      );
 
-    // Initialize database if needed (in case tables don't exist yet)
-    if (!dbContent) {
-      try {
-        await VercelDatabase.initializeTables();
-        // Retry storage after initialization
-        const retryContent = await VercelDatabase.storeAIContent(
-          parseInt(productId),
-          contentType,
-          contentData,
-          catalystFilePath || undefined,
-          contentData.metadata?.confidence || 'medium',
-          'openai'
-        );
-        
-        if (retryContent) {
-          console.log('✅ Successfully stored content after database initialization');
+      if (dbContent) {
+        console.log('✅ Content stored in database');
+      }
+    } catch (dbError) {
+      // Only try to initialize if we get a specific initialization error
+      if (dbError instanceof Error && dbError.message.includes('not configured')) {
+        console.log('ℹ️ Database not configured - files saved successfully to filesystem');
+      } else {
+        // Try to initialize tables if it's a different database error
+        try {
+          await VercelDatabase.initializeTables();
+          // Retry storage after initialization
+          dbContent = await VercelDatabase.storeAIContent(
+            parseInt(productId),
+            contentType,
+            contentData,
+            catalystFilePath || undefined,
+            contentData.metadata?.confidence || 'medium',
+            'openai'
+          );
+          
+          if (dbContent) {
+            console.log('✅ Content stored in database after initialization');
+          }
+        } catch (initError) {
+          console.log('ℹ️ Database not available - files saved successfully to filesystem');
         }
-      } catch (initError) {
-        console.warn('Database initialization failed, but file saving succeeded:', initError);
       }
     }
 
