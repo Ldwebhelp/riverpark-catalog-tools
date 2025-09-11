@@ -25,18 +25,18 @@ const navigationItems: NavItem[] = [
     description: 'Overview and Analytics'
   },
   {
-    id: 'products',
-    label: 'Product Details',
-    href: '/products',
-    icon: '🐟',
-    description: 'BigCommerce Product Management'
+    id: 'ai-search',
+    label: 'AI Content Generator',
+    href: '/ai-search',
+    icon: '🤖',
+    description: 'Generate AI Search Data from Real BigCommerce Products'
   },
   {
-    id: 'product-selector',
-    label: 'Product Selector',
-    href: '/product-selector',
-    icon: '✅',
-    description: 'Select Products for Content Creation'
+    id: 'ai-species',
+    label: 'AI Species Generator',
+    href: '/ai-species',
+    icon: '🐟',
+    description: 'AI-Powered Species Data Creation'
   },
   {
     id: 'care-guides',
@@ -44,20 +44,6 @@ const navigationItems: NavItem[] = [
     href: '/care-guides',
     icon: '📋',
     description: 'AI-Generated Species Care Guides'
-  },
-  {
-    id: 'information-panels',
-    label: 'Information Panels',
-    href: '/information',
-    icon: '📄',
-    description: 'Dynamic Content Management'
-  },
-  {
-    id: 'ai-species',
-    label: 'AI Species Generator',
-    href: '/ai-species',
-    icon: '🤖',
-    description: 'AI-Powered Species Data Creation'
   },
   {
     id: 'database',
@@ -129,7 +115,7 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -141,10 +127,10 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
           </button>
           <div>
             <h1 className="text-xl font-bold text-gray-900">
-              🏢 Riverpark Catalog Tools
+              Riverpark Catalog Tools
             </h1>
             <p className="text-sm text-gray-600">
-              Professional Aquarium Business Management Platform
+              AI-Powered Content Generation Platform
             </p>
           </div>
         </div>
@@ -183,7 +169,7 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
         </div>
       </header>
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         {/* Left Navigation Sidebar */}
         <nav className={`bg-white border-r border-gray-200 transition-all duration-300 flex flex-col ${
           sidebarCollapsed ? 'w-16' : 'w-72'
@@ -223,7 +209,7 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
         </nav>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 flex flex-col overflow-hidden">
           {/* Breadcrumbs */}
           {currentPage && (
             <div className="bg-white border-b border-gray-200 px-6 py-3">
@@ -256,21 +242,20 @@ export default function WebAppLayout({ children }: WebAppLayoutProps) {
             </div>
           )}
           
-          <div className="h-full">
+          <div className="flex-1 overflow-hidden">
             {children}
           </div>
         </main>
       </div>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between text-sm text-gray-600">
+      <footer className="bg-white border-t border-gray-200 px-6 py-2">
+        <div className="flex items-center justify-between text-xs text-gray-500">
           <div>
-            © 2024 Riverpark Catalog Tools - Professional Aquarium Business Platform
+            © {new Date().getFullYear()} Riverpark Catalog Tools
           </div>
-          <div className="flex items-center space-x-4">
-            <span>Build: Production</span>
-            <span>Version: 2.0.0</span>
+          <div className="flex items-center space-x-3">
+            <span>v2.0.0</span>
           </div>
         </div>
       </footer>

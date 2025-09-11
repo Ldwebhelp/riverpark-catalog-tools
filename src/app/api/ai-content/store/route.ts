@@ -1,0 +1,109 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { VercelDatabase } from '@/lib/vercel-database';
+import fs from 'fs/promises';
+import path from 'path';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { 
+      productId, 
+      contentType, 
+      contentData, 
+      autoSave = true 
+    } = body;
+
+    if (!productId || !contentType || !contentData) {
+      return NextResponse.json(
+        { error: 'Missing required fields: productId, contentType, contentData' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`🔄 Storing AI content for product ${productId} (${contentType})`);
+
+    // Determine file paths
+    let localFilePath: string | null = null;
+    let catalystFilePath: string | null = null;
+
+    if (autoSave) {
+      const localFileName = `ai-search-data-${productId}.json`;
+      const catalystFileName = `${productId}-ai-search.json`;
+      
+      // Local storage path (current project)
+      localFilePath = path.join(process.cwd(), 'generated-content', localFileName);
+      
+      // Catalyst project path - using the correct directory and naming convention
+      const catalystBasePath = '/Users/lindsay/GitHub/riverpark-catalyst-fresh';
+      catalystFilePath = path.join(catalystBasePath, 'frontend', 'content', 'ai-search', catalystFileName);
+
+      // Ensure directories exist
+      await fs.mkdir(path.dirname(localFilePath), { recursive: true });
+      await fs.mkdir(path.dirname(catalystFilePath), { recursive: true });
+
+      // Save to both locations
+      const jsonContent = JSON.stringify(contentData, null, 2);
+      await Promise.all([
+        fs.writeFile(localFilePath, jsonContent, 'utf8'),
+        fs.writeFile(catalystFilePath, jsonContent, 'utf8')
+      ]);
+
+      console.log(`✅ Saved files to:`);
+      console.log(`   Local: ${localFilePath}`);
+      console.log(`   Catalyst: ${catalystFilePath}`);
+    }
+
+    // Store in database
+    const dbContent = await VercelDatabase.storeAIContent(
+      parseInt(productId),
+      contentType,
+      contentData,
+      catalystFilePath || undefined,
+      contentData.metadata?.confidence || 'medium',
+      'openai'
+    );
+
+    // Initialize database if needed (in case tables don't exist yet)
+    if (!dbContent) {
+      try {
+        await VercelDatabase.initializeTables();
+        // Retry storage after initialization
+        const retryContent = await VercelDatabase.storeAIContent(
+          parseInt(productId),
+          contentType,
+          contentData,
+          catalystFilePath || undefined,
+          contentData.metadata?.confidence || 'medium',
+          'openai'
+        );
+        
+        if (retryContent) {
+          console.log('✅ Successfully stored content after database initialization');
+        }
+      } catch (initError) {
+        console.warn('Database initialization failed, but file saving succeeded:', initError);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Content stored successfully',
+      paths: {
+        local: localFilePath,
+        catalyst: catalystFilePath
+      },
+      database: !!dbContent,
+      content: dbContent || null
+    });
+
+  } catch (error) {
+    console.error('❌ Error storing AI content:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to store AI content',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}

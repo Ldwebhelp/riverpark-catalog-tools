@@ -17,7 +17,7 @@ const RealProductContentGenerator = dynamic(() => import('@/components/RealProdu
   )
 });
 
-export default function AISearchPage() {
+export default function RealProductsPage() {
   return (
     <WebAppLayout>
       <div className="h-full overflow-hidden">

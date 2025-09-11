@@ -69,6 +69,20 @@ export interface DatabaseChangeLog {
   detected_by: string;
 }
 
+export interface DatabaseAIContent {
+  id: number;
+  product_id: number;
+  content_type: 'ai-search' | 'care-guide' | 'species-data' | 'plant-guide';
+  content_data: any;
+  file_path: string | null;
+  created_at: string;
+  updated_at: string;
+  version: string;
+  status: 'active' | 'archived';
+  confidence: string;
+  generated_by: string;
+}
+
 export class VercelDatabase {
   
   /**
@@ -148,6 +162,24 @@ export class VercelDatabase {
         )
       `;
 
+      // AI Content table
+      await sql`
+        CREATE TABLE IF NOT EXISTS ai_content (
+          id SERIAL PRIMARY KEY,
+          product_id INTEGER REFERENCES products(entity_id) ON DELETE CASCADE,
+          content_type TEXT NOT NULL,
+          content_data JSONB NOT NULL,
+          file_path TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          version TEXT DEFAULT '1.0',
+          status TEXT DEFAULT 'active',
+          confidence TEXT DEFAULT 'medium',
+          generated_by TEXT DEFAULT 'openai',
+          CONSTRAINT unique_product_content UNIQUE(product_id, content_type)
+        )
+      `;
+
       // Indexes for performance
       await sql`CREATE INDEX IF NOT EXISTS idx_products_entity_id ON products(entity_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_products_sync_source ON products(sync_source)`;
@@ -156,6 +188,9 @@ export class VercelDatabase {
       await sql`CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_change_log_product_id ON change_log(product_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_ai_content_product_id ON ai_content(product_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_ai_content_type ON ai_content(content_type)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_ai_content_status ON ai_content(status)`;
 
       console.log('✅ Database tables initialized successfully');
 
@@ -505,6 +540,148 @@ export class VercelDatabase {
 
     } catch (error) {
       console.error('❌ Failed to clean old data:', error);
+    }
+  }
+
+  /**
+   * Store AI-generated content
+   */
+  static async storeAIContent(
+    productId: number,
+    contentType: 'ai-search' | 'care-guide' | 'species-data' | 'plant-guide',
+    contentData: any,
+    filePath?: string,
+    confidence: string = 'medium',
+    generatedBy: string = 'openai'
+  ): Promise<DatabaseAIContent | null> {
+    if (!sql) {
+      console.log('Database not configured - skipping AI content storage');
+      return null;
+    }
+
+    try {
+      const { rows } = await sql`
+        INSERT INTO ai_content (
+          product_id, content_type, content_data, file_path, 
+          confidence, generated_by, updated_at
+        )
+        VALUES (
+          ${productId}, ${contentType}, ${JSON.stringify(contentData)}, 
+          ${filePath || null}, ${confidence}, ${generatedBy}, NOW()
+        )
+        ON CONFLICT (product_id, content_type) 
+        DO UPDATE SET
+          content_data = EXCLUDED.content_data,
+          file_path = EXCLUDED.file_path,
+          confidence = EXCLUDED.confidence,
+          generated_by = EXCLUDED.generated_by,
+          updated_at = NOW(),
+          status = 'active'
+        RETURNING *
+      `;
+
+      console.log(`✅ Stored AI content for product ${productId} (${contentType})`);
+      return rows[0] as DatabaseAIContent;
+
+    } catch (error) {
+      console.error(`❌ Failed to store AI content for product ${productId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get AI content for a product
+   */
+  static async getAIContent(
+    productId: number, 
+    contentType?: 'ai-search' | 'care-guide' | 'species-data' | 'plant-guide'
+  ): Promise<DatabaseAIContent[]> {
+    if (!sql) {
+      return [];
+    }
+
+    try {
+      const query = contentType
+        ? sql`
+            SELECT * FROM ai_content 
+            WHERE product_id = ${productId} AND content_type = ${contentType} 
+            AND status = 'active'
+            ORDER BY updated_at DESC
+          `
+        : sql`
+            SELECT * FROM ai_content 
+            WHERE product_id = ${productId} AND status = 'active'
+            ORDER BY updated_at DESC
+          `;
+
+      const { rows } = await query;
+      return rows as DatabaseAIContent[];
+
+    } catch (error) {
+      console.error(`❌ Failed to get AI content for product ${productId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all AI content with pagination
+   */
+  static async getAllAIContent(
+    contentType?: 'ai-search' | 'care-guide' | 'species-data' | 'plant-guide',
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<{content: DatabaseAIContent[], total: number}> {
+    if (!sql) {
+      return { content: [], total: 0 };
+    }
+
+    try {
+      const whereClause = contentType ? sql`WHERE content_type = ${contentType} AND status = 'active'` : sql`WHERE status = 'active'`;
+      
+      const [contentResult, countResult] = await Promise.all([
+        sql`
+          SELECT ai_content.*, products.name as product_name 
+          FROM ai_content 
+          JOIN products ON ai_content.product_id = products.entity_id
+          ${whereClause}
+          ORDER BY ai_content.updated_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `,
+        sql`SELECT COUNT(*) as total FROM ai_content ${whereClause}`
+      ]);
+
+      return {
+        content: contentResult.rows as DatabaseAIContent[],
+        total: parseInt(countResult.rows[0].total)
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to get all AI content:', error);
+      return { content: [], total: 0 };
+    }
+  }
+
+  /**
+   * Delete AI content
+   */
+  static async deleteAIContent(id: number): Promise<boolean> {
+    if (!sql) {
+      return false;
+    }
+
+    try {
+      await sql`
+        UPDATE ai_content 
+        SET status = 'archived' 
+        WHERE id = ${id}
+      `;
+
+      console.log(`✅ Archived AI content ${id}`);
+      return true;
+
+    } catch (error) {
+      console.error(`❌ Failed to archive AI content ${id}:`, error);
+      return false;
     }
   }
 }

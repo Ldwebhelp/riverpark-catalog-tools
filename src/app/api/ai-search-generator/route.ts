@@ -15,7 +15,7 @@ interface GenerateAISearchRequest {
   name: string;
   scientificName?: string;
   commonName?: string;
-  provider?: 'openai' | 'mock';
+  provider?: 'openai';
   realProductData?: BigCommerceProduct;
 }
 
@@ -143,7 +143,7 @@ async function generateWithOpenAI(request: GenerateAISearchRequest): Promise<AIS
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -415,17 +415,21 @@ export async function POST(request: NextRequest) {
 
     console.log('Generating AI search data for:', body);
 
-    // Fetch real BigCommerce product data
-    const realProductData = await fetchBigCommerceProductData(body.productId);
+    // Use provided product data or fetch from BigCommerce
+    let realProductData: BigCommerceProduct | undefined = body.realProductData;
     if (!realProductData) {
-      const errorResponse = NextResponse.json(
-        { error: 'Product not found in BigCommerce' },
-        { status: 404 }
-      );
-      errorResponse.headers.set('Access-Control-Allow-Origin', '*');
-      errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-      return errorResponse;
+      const fetchedData = await fetchBigCommerceProductData(body.productId);
+      if (!fetchedData) {
+        const errorResponse = NextResponse.json(
+          { error: 'Product not found in BigCommerce' },
+          { status: 404 }
+        );
+        errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+        errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        return errorResponse;
+      }
+      realProductData = fetchedData;
     }
 
     // Generate AI search data
@@ -436,6 +440,31 @@ export async function POST(request: NextRequest) {
 
     // Save to riverpark-catalyst-fresh project
     await saveToProject(aiSearchData);
+
+    // Store in database and local file system
+    try {
+      const storeResponse = await fetch(`${request.nextUrl.origin}/api/ai-content/store`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: aiSearchData.productId,
+          contentType: 'ai-search',
+          contentData: aiSearchData,
+          autoSave: true
+        }),
+      });
+
+      if (storeResponse.ok) {
+        const storeResult = await storeResponse.json();
+        console.log('✅ Stored AI content in database and files:', storeResult.paths);
+      } else {
+        console.warn('❌ Failed to store AI content in database/files');
+      }
+    } catch (error) {
+      console.warn('❌ Error storing AI content:', error);
+    }
 
     console.log('Generated AI search data:', aiSearchData);
 

@@ -1,0 +1,120 @@
+{
+  "productId": 115,
+  "type": "ai-search",
+  "version": "1.0",
+  "basicInfo": {
+    "scientificName": "Protomelas taeniolatus",
+    "commonNames": [
+      "Red Empress Cichlid"
+    ],
+    "category": "Lake Malawi Cichlid",
+    "family": "Cichlidae",
+    "origin": "Lake Malawi, Africa",
+    "waterType": "Freshwater"
+  },
+  "searchKeywords": [
+    "Red Empress Cichlid",
+    "Protomelas taeniolatus",
+    "Lake Malawi Cichlid",
+    "African Cichlid",
+    "freshwater cichlid",
+    "colourful cichlid",
+    "intermediate fish care",
+    "semi-aggressive cichlid",
+    "15 cm cichlid",
+    "cichlid for 200L tank",
+    "cichlid with rocky habitat",
+    "omnivorous cichlid",
+    "cichlid with bright colours",
+    "cichlid for community tank"
+  ],
+  "careRequirements": {
+    "minTankSize": "200L",
+    "temperatureRange": "24-28°C",
+    "phRange": "7.8-8.6",
+    "maxSize": "15 cm",
+    "diet": "Omnivore",
+    "careLevel": "Intermediate",
+    "temperament": "Semi-aggressive",
+    "socialNeeds": "Group of 3+",
+    "lifespan": "8-10 years"
+  },
+  "compatibility": {
+    "compatibleWith": [
+      "Synodontis catfish",
+      "other Malawi cichlids",
+      "non-aggressive cichlids"
+    ],
+    "avoidWith": [
+      "smaller timid fish",
+      "overly aggressive fish",
+      "fin-nipping species"
+    ],
+    "tankMateCategories": [
+      "Malawi cichlids",
+      "peaceful catfish"
+    ]
+  },
+  "aiContext": {
+    "whyPopular": "The Red Empress Cichlid is popular for its vibrant colours and dynamic behaviour.",
+    "keySellingPoints": [
+      "Stunning colouration",
+      "Active swimmer",
+      "Intermediate care level",
+      "Compatible with other Malawi cichlids",
+      "Long lifespan",
+      "Unique territorial behaviour"
+    ],
+    "commonQuestions": [
+      {
+        "question": "Are Red Empress Cichlids aggressive?",
+        "answer": "Red Empress Cichlids are semi-aggressive, especially during breeding, and require ample space."
+      },
+      {
+        "question": "What tank mates work with Red Empress Cichlids?",
+        "answer": "They are compatible with similar-sized, non-aggressive cichlids and peaceful species like Synodontis catfish."
+      },
+      {
+        "question": "What size tank do Red Empress Cichlids need?",
+        "answer": "A minimum tank size of 200 litres is recommended for a small group."
+      },
+      {
+        "question": "Are Red Empress Cichlids good for beginners?",
+        "answer": "They are suitable for intermediate aquarists due to their specific care requirements."
+      }
+    ],
+    "alternativeNames": [
+      "Protomelas taeniolatus",
+      "Empress Cichlid"
+    ]
+  },
+  "relatedProducts": {
+    "complementaryProducts": [
+      "High-quality cichlid pellets",
+      "Aquarium filter with strong flow",
+      "pH stabilisers",
+      "Rocky aquarium decorations",
+      "Aquarium heater"
+    ],
+    "similarSpecies": [
+      "Aulonocara baenschi",
+      "Cyrtocara moorii",
+      "Labidochromis caeruleus"
+    ]
+  },
+  "breeding": {
+    "breedingType": "Mouthbrooder",
+    "breedingDifficulty": "Moderate",
+    "breedingNotes": "Females hold eggs in their mouth until they hatch, requiring a separate breeding tank for fry."
+  },
+  "metadata": {
+    "generatedAt": "2025-09-11T10:37:56.055Z",
+    "lastUpdated": "2025-09-11T10:37:56.055Z",
+    "confidence": "high",
+    "sources": [
+      "BigCommerce Product Data",
+      "OpenAI GPT-4",
+      "Aquarium Care Databases"
+    ]
+  }
+}
