@@ -314,15 +314,6 @@ export default function RealProductContentGenerator() {
       setGeneratedContent(content);
       setSpeciesContent(species);
       
-      // Store content in the map for persistence when switching products
-      const newMap = new Map(productContentMap);
-      newMap.set(selectedProduct.entityId, {
-        aiContent: content,
-        speciesContent: species,
-        storageInfo: initializeStorageInfo()
-      });
-      setProductContentMap(newMap);
-      
       // Add to products with content set for badge display
       const newSet = new Set(productsWithContent);
       newSet.add(selectedProduct.entityId);
@@ -332,6 +323,18 @@ export default function RealProductContentGenerator() {
       
       // Save files individually to track progress
       await saveFilesIndividually(content, species);
+      
+      // Store content in the map for persistence when switching products
+      // (after files are saved to capture the updated storage info)
+      setProductContentMap(prevMap => {
+        const newMap = new Map(prevMap);
+        newMap.set(selectedProduct.entityId, {
+          aiContent: content,
+          speciesContent: species,
+          storageInfo: storageInfo || initializeStorageInfo()
+        });
+        return newMap;
+      });
 
     } catch (err) {
       console.error('❌ Error generating content:', err);

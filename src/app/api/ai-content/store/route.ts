@@ -49,20 +49,28 @@ export async function POST(request: NextRequest) {
       const catalystBasePath = '/Users/lindsay/GitHub/riverpark-catalyst-fresh';
       catalystFilePath = path.join(catalystBasePath, 'frontend', 'content', catalystSubDir, catalystFileName);
 
-      // Ensure directories exist
-      await fs.mkdir(path.dirname(localFilePath), { recursive: true });
-      await fs.mkdir(path.dirname(catalystFilePath), { recursive: true });
-
-      // Save to both locations
+      // Ensure directories exist and save files
       const jsonContent = JSON.stringify(contentData, null, 2);
-      await Promise.all([
-        fs.writeFile(localFilePath, jsonContent, 'utf8'),
-        fs.writeFile(catalystFilePath, jsonContent, 'utf8')
-      ]);
-
-      console.log(`✅ Saved files to:`);
-      console.log(`   Local: ${localFilePath}`);
-      console.log(`   Catalyst: ${catalystFilePath}`);
+      const fileSavePromises = [];
+      
+      // Always save local file
+      await fs.mkdir(path.dirname(localFilePath), { recursive: true });
+      fileSavePromises.push(fs.writeFile(localFilePath, jsonContent, 'utf8'));
+      
+      // Only save to Catalyst if the directory exists (local development)
+      try {
+        await fs.mkdir(path.dirname(catalystFilePath), { recursive: true });
+        fileSavePromises.push(fs.writeFile(catalystFilePath, jsonContent, 'utf8'));
+        console.log(`✅ Saved files to:`);
+        console.log(`   Local: ${localFilePath}`);
+        console.log(`   Catalyst: ${catalystFilePath}`);
+      } catch (catalystError) {
+        console.log(`ℹ️ Catalyst path not available (production environment)`);
+        console.log(`✅ Saved local file: ${localFilePath}`);
+        catalystFilePath = null; // Clear the path since it couldn't be saved
+      }
+      
+      await Promise.all(fileSavePromises);
     }
 
     // Store in database (optional - gracefully skip if not configured)
