@@ -6,12 +6,14 @@
 // Conditional import for optional database functionality  
 let sql: any = null;
 try {
-  if (process.env.POSTGRES_URL) {
+  if (process.env.POSTGRES_URL && typeof window === 'undefined') {
+    // Only import on server side to avoid build errors
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    sql = require('@vercel/postgres').sql;
+    const postgres = require('postgres');
+    sql = postgres(process.env.POSTGRES_URL);
   }
-} catch {
-  console.log('Database not configured - running without persistent storage');
+} catch (error) {
+  console.log('Database not configured - running without persistent storage', error);
 }
 
 // Database schema types
@@ -259,7 +261,7 @@ export class VercelDatabase {
    */
   static async getCachedProducts(): Promise<DatabaseProduct[]> {
     try {
-      const { rows } = await sql`
+      const rows = await sql`
         SELECT * FROM products 
         WHERE is_visible = true 
         ORDER BY name ASC
@@ -276,7 +278,7 @@ export class VercelDatabase {
    */
   static async getSpeciesStatuses(): Promise<Map<number, DatabaseSpeciesStatus>> {
     try {
-      const { rows } = await sql`
+      const rows = await sql`
         SELECT * FROM species_status
       `;
       
@@ -381,7 +383,7 @@ export class VercelDatabase {
    */
   static async getNotifications(): Promise<DatabaseNotification[]> {
     try {
-      const { rows } = await sql`
+      const rows = await sql`
         SELECT * FROM notifications 
         ORDER BY created_at DESC 
         LIMIT 100
@@ -445,7 +447,7 @@ export class VercelDatabase {
    */
   static async getProductChangeHistory(productId: number): Promise<DatabaseChangeLog[]> {
     try {
-      const { rows } = await sql`
+      const rows = await sql`
         SELECT * FROM change_log 
         WHERE product_id = ${productId} 
         ORDER BY changed_at DESC
@@ -544,6 +546,47 @@ export class VercelDatabase {
   }
 
   /**
+   * Ensure product exists in database before storing AI content
+   */
+  static async ensureProduct(productId: number, productName?: string): Promise<void> {
+    if (!sql) return;
+
+    try {
+      // Check if product exists
+      const rows = await sql`
+        SELECT entity_id FROM products WHERE entity_id = ${productId}
+      `;
+
+      if (rows.length === 0) {
+        // Product doesn't exist, create a basic record
+        await sql`
+          INSERT INTO products (
+            entity_id, name, sku, price, categories, description, 
+            brand_name, is_visible, date_created, date_modified, 
+            last_synced, sync_source
+          )
+          VALUES (
+            ${productId}, ${productName || `Product ${productId}`}, null, 0, '{}', 
+            null, null, true, NOW(), NOW(), NOW(), 'ai-content-generator'
+          )
+        `;
+
+        // Initialize species status
+        await sql`
+          INSERT INTO species_status (product_id, status, last_checked)
+          VALUES (${productId}, 'no-file', NOW())
+          ON CONFLICT (product_id) 
+          DO UPDATE SET last_checked = NOW()
+        `;
+
+        console.log(`✅ Created basic product record for ID ${productId}`);
+      }
+    } catch (error) {
+      console.error(`❌ Failed to ensure product ${productId} exists:`, error);
+    }
+  }
+
+  /**
    * Store AI-generated content
    */
   static async storeAIContent(
@@ -560,7 +603,11 @@ export class VercelDatabase {
     }
 
     try {
-      const { rows } = await sql`
+      // Ensure product exists before storing AI content
+      const productName = contentData?.basicInfo?.commonNames?.[0] || contentData?.title || undefined;
+      await this.ensureProduct(productId, productName);
+
+      const rows = await sql`
         INSERT INTO ai_content (
           product_id, content_type, content_data, file_path, 
           confidence, generated_by, updated_at
