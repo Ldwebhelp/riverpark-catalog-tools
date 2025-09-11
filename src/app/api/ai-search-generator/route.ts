@@ -435,26 +435,8 @@ function createSpeciesData(aiSearchData: AISearchData): SpeciesData {
   };
 }
 
-// Save AI search data to riverpark-catalyst-fresh project
-async function saveToProject(aiSearchData: AISearchData): Promise<void> {
-  try {
-    const response = await fetch('https://riverpark-catalyst-fresh.vercel.app/api/ai/save-ai-search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(aiSearchData),
-    });
-
-    if (!response.ok) {
-      console.error('Failed to save to project:', response.status, response.statusText);
-    } else {
-      console.log('Successfully saved AI search data to project');
-    }
-  } catch (error) {
-    console.error('Error saving to project:', error);
-  }
-}
+// Files are saved directly to the Catalyst project filesystem via the storage API
+// No external API calls needed - local filesystem access is more reliable
 
 export async function POST(request: NextRequest) {
   try {
@@ -501,8 +483,8 @@ export async function POST(request: NextRequest) {
     // Create species data from AI search data
     const speciesData = createSpeciesData(aiSearchData);
 
-    // Save to riverpark-catalyst-fresh project
-    await saveToProject(aiSearchData);
+    // Note: Files are automatically saved to Catalyst project via the storage API below
+    console.log('✅ AI search data generated, proceeding to save to filesystem and database');
 
     // Store both files in database and local file system
     try {
