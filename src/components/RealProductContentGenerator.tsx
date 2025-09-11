@@ -56,9 +56,51 @@ interface GeneratedContent {
   };
 }
 
+interface SpeciesContent {
+  productId: number;
+  type: string;
+  version: string;
+  basicInfo: {
+    scientificName: string;
+    commonNames: string[];
+    category: string;
+    family: string;
+    origin: string;
+    waterType: string;
+  };
+  careRequirements: {
+    minTankSize: string;
+    temperatureRange: string;
+    phRange: string;
+    maxSize: string;
+    diet: string;
+    careLevel: string;
+    temperament: string;
+    socialNeeds: string;
+    lifespan: string;
+  };
+  compatibility: {
+    compatibleWith: string[];
+    avoidWith: string[];
+    tankMateCategories: string[];
+  };
+  breeding: {
+    breedingType: string;
+    breedingDifficulty: string;
+    breedingNotes: string;
+  };
+  metadata: {
+    generatedAt: string;
+    lastUpdated: string;
+    confidence: string;
+    sources: string[];
+  };
+}
+
 export default function RealProductContentGenerator() {
   const [selectedProduct, setSelectedProduct] = useState<RealProduct | null>(null);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+  const [speciesContent, setSpeciesContent] = useState<SpeciesContent | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [storageInfo, setStorageInfo] = useState<{
@@ -70,12 +112,16 @@ export default function RealProductContentGenerator() {
   
   // Store generated content for each product to persist when switching
   const [productContentMap, setProductContentMap] = useState<Map<number, {
-    content: GeneratedContent;
+    aiContent: GeneratedContent;
+    speciesContent: SpeciesContent;
     storageInfo: { database: boolean; paths: { local?: string; catalyst?: string } } | null;
   }>>(new Map());
   
   // Track which products have generated content for badges
   const [productsWithContent, setProductsWithContent] = useState<Set<number>>(new Set());
+  
+  // Tab state for switching between AI Search and Species views
+  const [activeTab, setActiveTab] = useState<'ai-search' | 'species'>('ai-search');
 
   const extractScientificName = (productName: string): string => {
     // Extract scientific name from product name (usually in parentheses)
@@ -89,6 +135,25 @@ export default function RealProductContentGenerator() {
     return parts[0].trim().replace(/^\d+cm\s*/, ''); // Remove size prefix if present
   };
 
+  // Create species content from AI search data
+  const createSpeciesContent = (aiContent: GeneratedContent): SpeciesContent => {
+    return {
+      productId: aiContent.productId,
+      type: 'species',
+      version: '1.0',
+      basicInfo: aiContent.basicInfo,
+      careRequirements: aiContent.careRequirements,
+      compatibility: aiContent.compatibility,
+      breeding: aiContent.breeding,
+      metadata: {
+        generatedAt: aiContent.metadata.generatedAt,
+        lastUpdated: aiContent.metadata.generatedAt,
+        confidence: aiContent.metadata.confidence,
+        sources: aiContent.metadata.sources
+      }
+    };
+  };
+
   const handleProductSelect = (product: RealProduct) => {
     setSelectedProduct(product);
     setError(null);
@@ -96,10 +161,12 @@ export default function RealProductContentGenerator() {
     // Restore previously generated content for this product if it exists
     const existingContent = productContentMap.get(product.entityId);
     if (existingContent) {
-      setGeneratedContent(existingContent.content);
+      setGeneratedContent(existingContent.aiContent);
+      setSpeciesContent(existingContent.speciesContent);
       setStorageInfo(existingContent.storageInfo);
     } else {
       setGeneratedContent(null);
+      setSpeciesContent(null);
       setStorageInfo(null);
     }
   };
@@ -154,12 +221,16 @@ export default function RealProductContentGenerator() {
       }
 
       const content = await response.json();
+      const species = createSpeciesContent(content);
+      
       setGeneratedContent(content);
+      setSpeciesContent(species);
       
       // Store content in the map for persistence when switching products
       const newMap = new Map(productContentMap);
       newMap.set(selectedProduct.entityId, {
-        content: content,
+        aiContent: content,
+        speciesContent: species,
         storageInfo: null
       });
       setProductContentMap(newMap);
@@ -223,10 +294,11 @@ export default function RealProductContentGenerator() {
         setStorageInfo(newStorageInfo);
         
         // Update stored content with new storage info
-        if (selectedProduct && generatedContent) {
+        if (selectedProduct && generatedContent && speciesContent) {
           const newMap = new Map(productContentMap);
           newMap.set(selectedProduct.entityId, {
-            content: generatedContent,
+            aiContent: generatedContent,
+            speciesContent: speciesContent,
             storageInfo: newStorageInfo
           });
           setProductContentMap(newMap);
@@ -269,10 +341,11 @@ export default function RealProductContentGenerator() {
         setStorageInfo(newStorageInfo);
         
         // Update stored content with new storage info
-        if (selectedProduct) {
+        if (selectedProduct && generatedContent && speciesContent) {
           const newMap = new Map(productContentMap);
           newMap.set(selectedProduct.entityId, {
-            content: generatedContent,
+            aiContent: generatedContent,
+            speciesContent: speciesContent,
             storageInfo: newStorageInfo
           });
           setProductContentMap(newMap);
@@ -492,115 +565,269 @@ export default function RealProductContentGenerator() {
                     </div>
                   </div>
 
-                  {/* Content Preview */}
+                  {/* Tabbed Content Preview */}
                   <div className="space-y-6">
-                    {/* Basic Info */}
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">Basic Information</h4>
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-3">
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Scientific Name</span>
-                            <p className="text-gray-900 font-medium">{generatedContent.basicInfo.scientificName}</p>
-                          </div>
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Origin</span>
-                            <p className="text-gray-900">{generatedContent.basicInfo.origin}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Category</span>
-                            <p className="text-gray-900">{generatedContent.basicInfo.category}</p>
-                          </div>
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Water Type</span>
-                            <p className="text-gray-900">{generatedContent.basicInfo.waterType}</p>
-                          </div>
-                        </div>
-                      </div>
+                    {/* Tab Navigation */}
+                    <div className="border-b border-gray-200">
+                      <nav className="flex space-x-8">
+                        <button
+                          onClick={() => setActiveTab('ai-search')}
+                          className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === 'ai-search'
+                              ? 'border-blue-500 text-blue-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          AI Search Data
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('species')}
+                          className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === 'species'
+                              ? 'border-blue-500 text-blue-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          Species Reference
+                        </button>
+                      </nav>
                     </div>
 
-                    {/* Search Keywords */}
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">Search Keywords</h4>
-                      <div className="flex flex-wrap gap-3">
-                        {generatedContent.searchKeywords.map((keyword, index) => (
-                          <span
-                            key={index}
-                            className="px-4 py-2 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-800 rounded-full text-sm font-medium shadow-sm"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Care Requirements */}
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">Care Requirements</h4>
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Tank Size</span>
-                            <p className="text-gray-900 font-medium">{generatedContent.careRequirements.minTankSize}</p>
-                          </div>
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">pH Range</span>
-                            <p className="text-gray-900">{generatedContent.careRequirements.phRange}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Temperature</span>
-                            <p className="text-gray-900">{generatedContent.careRequirements.temperatureRange}</p>
-                          </div>
-                          <div>
-                            <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Care Level</span>
-                            <p className="text-gray-900">{generatedContent.careRequirements.careLevel}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* AI Context */}
-                    <div className="p-4 bg-white border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">AI Context</h4>
+                    {/* AI Search Tab Content */}
+                    {activeTab === 'ai-search' && (
                       <div className="space-y-6">
-                        <div>
-                          <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-2 block">Why Popular</span>
-                          <p className="text-gray-700 leading-relaxed">{generatedContent.aiContext.whyPopular}</p>
-                        </div>
-                        <div>
-                          <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-3 block">Key Selling Points</span>
-                          <div className="space-y-2">
-                            {generatedContent.aiContext.keySellingPoints.map((point, index) => (
-                              <div key={index} className="flex items-start space-x-3">
-                                <div className="w-2 h-2 bg-orange-400 rounded-full mt-2 flex-shrink-0"></div>
-                                <p className="text-gray-700">{point}</p>
+                        {/* Basic Info */}
+                        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-3">Basic Information</h4>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Scientific Name</span>
+                                <p className="text-gray-900 font-medium">{generatedContent.basicInfo.scientificName}</p>
                               </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Origin</span>
+                                <p className="text-gray-900">{generatedContent.basicInfo.origin}</p>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Category</span>
+                                <p className="text-gray-900">{generatedContent.basicInfo.category}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Water Type</span>
+                                <p className="text-gray-900">{generatedContent.basicInfo.waterType}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Search Keywords */}
+                        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-3">Search Keywords</h4>
+                          <div className="flex flex-wrap gap-3">
+                            {generatedContent.searchKeywords.map((keyword, index) => (
+                              <span
+                                key={index}
+                                className="px-4 py-2 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-800 rounded-full text-sm font-medium shadow-sm"
+                              >
+                                {keyword}
+                              </span>
                             ))}
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Full JSON Preview */}
-                    <details className="p-6 bg-gray-50 border border-gray-200 rounded-xl">
-                      <summary className="font-bold text-gray-900 text-lg cursor-pointer hover:text-gray-800 transition-colors">
-                        <div className="flex items-center space-x-2">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                          </svg>
-                          <span>View Full JSON Data</span>
+                        {/* AI Context */}
+                        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-3">AI Context</h4>
+                          <div className="space-y-6">
+                            <div>
+                              <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-2 block">Why Popular</span>
+                              <p className="text-gray-700 leading-relaxed">{generatedContent.aiContext.whyPopular}</p>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-3 block">Key Selling Points</span>
+                              <div className="space-y-2">
+                                {generatedContent.aiContext.keySellingPoints.map((point, index) => (
+                                  <div key={index} className="flex items-start space-x-3">
+                                    <div className="w-2 h-2 bg-orange-400 rounded-full mt-2 flex-shrink-0"></div>
+                                    <p className="text-gray-700">{point}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </summary>
-                      <div className="mt-4 p-4 bg-gray-900 rounded-lg overflow-x-auto">
-                        <pre className="text-sm text-green-400 font-mono">
-                          {JSON.stringify(generatedContent, null, 2)}
-                        </pre>
+
+                        {/* Full AI Search JSON */}
+                        <details className="p-6 bg-gray-50 border border-gray-200 rounded-xl">
+                          <summary className="font-bold text-gray-900 text-lg cursor-pointer hover:text-gray-800 transition-colors">
+                            <div className="flex items-center space-x-2">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                              </svg>
+                              <span>View Full AI Search JSON</span>
+                            </div>
+                          </summary>
+                          <div className="mt-4 p-4 bg-gray-900 rounded-lg overflow-x-auto">
+                            <pre className="text-sm text-green-400 font-mono">
+                              {JSON.stringify(generatedContent, null, 2)}
+                            </pre>
+                          </div>
+                        </details>
                       </div>
-                    </details>
+                    )}
+
+                    {/* Species Tab Content */}
+                    {activeTab === 'species' && speciesContent && (
+                      <div className="space-y-6">
+                        {/* Basic Info */}
+                        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-3">Basic Information</h4>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Scientific Name</span>
+                                <p className="text-gray-900 font-medium">{speciesContent.basicInfo.scientificName}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Origin</span>
+                                <p className="text-gray-900">{speciesContent.basicInfo.origin}</p>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Category</span>
+                                <p className="text-gray-900">{speciesContent.basicInfo.category}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Water Type</span>
+                                <p className="text-gray-900">{speciesContent.basicInfo.waterType}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Care Requirements */}
+                        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-3">Care Requirements</h4>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Tank Size</span>
+                                <p className="text-gray-900 font-medium">{speciesContent.careRequirements.minTankSize}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">pH Range</span>
+                                <p className="text-gray-900">{speciesContent.careRequirements.phRange}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Diet</span>
+                                <p className="text-gray-900">{speciesContent.careRequirements.diet}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Social Needs</span>
+                                <p className="text-gray-900">{speciesContent.careRequirements.socialNeeds}</p>
+                              </div>
+                            </div>
+                            <div className="space-y-4">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Temperature</span>
+                                <p className="text-gray-900">{speciesContent.careRequirements.temperatureRange}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Care Level</span>
+                                <p className="text-gray-900">{speciesContent.careRequirements.careLevel}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Max Size</span>
+                                <p className="text-gray-900">{speciesContent.careRequirements.maxSize}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Lifespan</span>
+                                <p className="text-gray-900">{speciesContent.careRequirements.lifespan}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Compatibility */}
+                        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-3">Compatibility</h4>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-2 block">Compatible With</span>
+                                <div className="space-y-1">
+                                  {speciesContent.compatibility.compatibleWith.map((species, index) => (
+                                    <div key={index} className="flex items-center space-x-2">
+                                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                      <span className="text-gray-700">{species}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="space-y-4">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-2 block">Avoid With</span>
+                                <div className="space-y-1">
+                                  {speciesContent.compatibility.avoidWith.map((species, index) => (
+                                    <div key={index} className="flex items-center space-x-2">
+                                      <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                                      <span className="text-gray-700">{species}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Breeding Information */}
+                        <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-3">Breeding Information</h4>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Type</span>
+                                <p className="text-gray-900">{speciesContent.breeding.breedingType}</p>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Difficulty</span>
+                                <p className="text-gray-900">{speciesContent.breeding.breedingDifficulty}</p>
+                              </div>
+                            </div>
+                          </div>
+                          {speciesContent.breeding.breedingNotes && (
+                            <div className="mt-4">
+                              <span className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-2 block">Notes</span>
+                              <p className="text-gray-700 leading-relaxed">{speciesContent.breeding.breedingNotes}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Full Species JSON */}
+                        <details className="p-6 bg-gray-50 border border-gray-200 rounded-xl">
+                          <summary className="font-bold text-gray-900 text-lg cursor-pointer hover:text-gray-800 transition-colors">
+                            <div className="flex items-center space-x-2">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                              </svg>
+                              <span>View Full Species JSON</span>
+                            </div>
+                          </summary>
+                          <div className="mt-4 p-4 bg-gray-900 rounded-lg overflow-x-auto">
+                            <pre className="text-sm text-green-400 font-mono">
+                              {JSON.stringify(speciesContent, null, 2)}
+                            </pre>
+                          </div>
+                        </details>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
