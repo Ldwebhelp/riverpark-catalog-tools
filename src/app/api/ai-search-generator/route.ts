@@ -91,6 +91,47 @@ interface AISearchData {
   };
 }
 
+interface SpeciesData {
+  productId: number;
+  type: string;
+  version: string;
+  basicInfo: {
+    scientificName: string;
+    commonNames: string[];
+    category: string;
+    family: string;
+    origin: string;
+    waterType: string;
+  };
+  careRequirements: {
+    minTankSize: string;
+    temperatureRange: string;
+    phRange: string;
+    maxSize: string;
+    diet: string;
+    careLevel: string;
+    temperament: string;
+    socialNeeds: string;
+    lifespan: string;
+  };
+  compatibility: {
+    compatibleWith: string[];
+    avoidWith: string[];
+    tankMateCategories: string[];
+  };
+  breeding: {
+    breedingType: string;
+    breedingDifficulty: string;
+    breedingNotes: string;
+  };
+  metadata: {
+    generatedAt: string;
+    lastUpdated: string;
+    confidence: string;
+    sources: string[];
+  };
+}
+
 // Fetch BigCommerce product data from riverpark-catalyst-fresh
 async function fetchBigCommerceProductData(productId: string): Promise<BigCommerceProduct | null> {
   try {
@@ -375,6 +416,25 @@ function extractCommonName(productName: string): string | null {
   return commonName || null;
 }
 
+// Create species data from AI search data (Quick Reference content)
+function createSpeciesData(aiSearchData: AISearchData): SpeciesData {
+  return {
+    productId: aiSearchData.productId,
+    type: 'species',
+    version: '1.0',
+    basicInfo: aiSearchData.basicInfo,
+    careRequirements: aiSearchData.careRequirements,
+    compatibility: aiSearchData.compatibility,
+    breeding: aiSearchData.breeding,
+    metadata: {
+      generatedAt: aiSearchData.metadata.generatedAt,
+      lastUpdated: aiSearchData.metadata.lastUpdated,
+      confidence: aiSearchData.metadata.confidence,
+      sources: aiSearchData.metadata.sources
+    }
+  };
+}
+
 // Save AI search data to riverpark-catalyst-fresh project
 async function saveToProject(aiSearchData: AISearchData): Promise<void> {
   try {
@@ -438,12 +498,16 @@ export async function POST(request: NextRequest) {
       realProductData
     });
 
+    // Create species data from AI search data
+    const speciesData = createSpeciesData(aiSearchData);
+
     // Save to riverpark-catalyst-fresh project
     await saveToProject(aiSearchData);
 
-    // Store in database and local file system
+    // Store both files in database and local file system
     try {
-      const storeResponse = await fetch(`${request.nextUrl.origin}/api/ai-content/store`, {
+      // Store AI search data
+      const storeAIResponse = await fetch(`${request.nextUrl.origin}/api/ai-content/store`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -456,14 +520,30 @@ export async function POST(request: NextRequest) {
         }),
       });
 
-      if (storeResponse.ok) {
-        const storeResult = await storeResponse.json();
-        console.log('✅ Stored AI content in database and files:', storeResult.paths);
+      // Store species data
+      const storeSpeciesResponse = await fetch(`${request.nextUrl.origin}/api/ai-content/store`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: speciesData.productId,
+          contentType: 'species',
+          contentData: speciesData,
+          autoSave: true
+        }),
+      });
+
+      if (storeAIResponse.ok && storeSpeciesResponse.ok) {
+        const aiResult = await storeAIResponse.json();
+        const speciesResult = await storeSpeciesResponse.json();
+        console.log('✅ Stored AI content in database and files:', aiResult.paths);
+        console.log('✅ Stored species content in database and files:', speciesResult.paths);
       } else {
-        console.warn('❌ Failed to store AI content in database/files');
+        console.warn('❌ Failed to store content in database/files');
       }
     } catch (error) {
-      console.warn('❌ Error storing AI content:', error);
+      console.warn('❌ Error storing content:', error);
     }
 
     console.log('Generated AI search data:', aiSearchData);

@@ -311,7 +311,7 @@ export default function RealProductContentGenerator() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">AI Content Generator</h2>
               <p className="text-sm text-gray-600">
-                Generate comprehensive search data from real BigCommerce products
+                Generate AI search data and species reference files from real BigCommerce products
               </p>
             </div>
           </div>
@@ -329,12 +329,12 @@ export default function RealProductContentGenerator() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a Product</h3>
                 <p className="text-gray-600 leading-relaxed mb-4">
-                  Choose a product from the list to generate AI-powered search data and care information.
+                  Choose a product from the list to generate AI search data and species reference files.
                 </p>
                 <div className="space-y-1 text-sm text-gray-500">
-                  <p>• AI-powered content generation</p>
-                  <p>• Search optimization data</p>
-                  <p>• Comprehensive care information</p>
+                  <p>• AI search optimization data</p>
+                  <p>• Species reference information</p>
+                  <p>• Two files: [productId]-ai-search.json & [productId]-species.json</p>
                 </div>
               </div>
             </div>
@@ -384,7 +384,7 @@ export default function RealProductContentGenerator() {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      <span>Generate AI Search Data</span>
+                      <span>Generate AI Content</span>
                     </div>
                   )}
                 </button>
@@ -421,7 +421,7 @@ export default function RealProductContentGenerator() {
                         </div>
                         <div>
                           <h4 className="text-green-800 font-medium">Content Generated Successfully</h4>
-                          <p className="text-green-700 text-sm">AI search data has been automatically saved</p>
+                          <p className="text-green-700 text-sm">AI search data and species data have been automatically saved</p>
                         </div>
                       </div>
                       <div className="flex space-x-2">

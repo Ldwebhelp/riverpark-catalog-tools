@@ -27,15 +27,27 @@ export async function POST(request: NextRequest) {
     let catalystFilePath: string | null = null;
 
     if (autoSave) {
-      const localFileName = `ai-search-data-${productId}.json`;
-      const catalystFileName = `${productId}-ai-search.json`;
+      let localFileName: string;
+      let catalystFileName: string;
+      let catalystSubDir: string;
+
+      // Determine file naming based on content type
+      if (contentType === 'species') {
+        localFileName = `species-data-${productId}.json`;
+        catalystFileName = `${productId}-species.json`;
+        catalystSubDir = 'species';
+      } else {
+        localFileName = `ai-search-data-${productId}.json`;
+        catalystFileName = `${productId}-ai-search.json`;
+        catalystSubDir = 'ai-search';
+      }
       
       // Local storage path (current project)
       localFilePath = path.join(process.cwd(), 'generated-content', localFileName);
       
       // Catalyst project path - using the correct directory and naming convention
       const catalystBasePath = '/Users/lindsay/GitHub/riverpark-catalyst-fresh';
-      catalystFilePath = path.join(catalystBasePath, 'frontend', 'content', 'ai-search', catalystFileName);
+      catalystFilePath = path.join(catalystBasePath, 'frontend', 'content', catalystSubDir, catalystFileName);
 
       // Ensure directories exist
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
