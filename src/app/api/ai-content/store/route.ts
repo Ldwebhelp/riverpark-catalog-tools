@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Determine file paths
     let localFilePath: string | null = null;
-    let catalystFilePath: string | null = null;
+    const catalystFilePath: string | null = null;
 
     if (autoSave) {
       let localFileName: string;
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
           if (dbContent) {
             console.log('✅ Content stored in database after initialization');
           }
-        } catch (initError) {
+        } catch {
           console.log('ℹ️ Database not available - files saved successfully to filesystem');
         }
       }
