@@ -46,6 +46,13 @@ const navigationItems: NavItem[] = [
     description: 'AI-Generated Species Care Guides'
   },
   {
+    id: 'stock-monitoring',
+    label: 'Stock Monitoring',
+    href: '/stock-monitoring',
+    icon: '📦',
+    description: 'Track Inventory Levels and Stock Changes'
+  },
+  {
     id: 'database',
     label: 'Database Management',
     href: '/database',

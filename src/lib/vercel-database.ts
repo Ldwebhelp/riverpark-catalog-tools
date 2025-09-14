@@ -85,6 +85,34 @@ export interface DatabaseAIContent {
   generated_by: string;
 }
 
+export interface DatabaseStockHistory {
+  id: number;
+  product_id: number;
+  variant_id: number | null;
+  sku: string;
+  inventory_level: number;
+  inventory_warning_level: number;
+  is_in_stock: boolean;
+  is_visible: boolean;
+  recorded_at: string;
+  change_type: 'initial' | 'increase' | 'decrease' | 'restock' | 'out_of_stock';
+  previous_level: number | null;
+  difference: number | null;
+}
+
+export interface DatabaseStockAlert {
+  id: number;
+  product_id: number;
+  variant_id: number | null;
+  sku: string;
+  alert_type: 'low_stock' | 'out_of_stock' | 'restock';
+  inventory_level: number;
+  threshold_level: number;
+  triggered_at: string;
+  resolved_at: string | null;
+  is_active: boolean;
+}
+
 export class VercelDatabase {
   
   /**
@@ -182,6 +210,40 @@ export class VercelDatabase {
         )
       `;
 
+      // Stock History table
+      await sql`
+        CREATE TABLE IF NOT EXISTS stock_history (
+          id SERIAL PRIMARY KEY,
+          product_id INTEGER REFERENCES products(entity_id) ON DELETE CASCADE,
+          variant_id INTEGER,
+          sku TEXT NOT NULL,
+          inventory_level INTEGER NOT NULL,
+          inventory_warning_level INTEGER DEFAULT 0,
+          is_in_stock BOOLEAN NOT NULL,
+          is_visible BOOLEAN DEFAULT true,
+          recorded_at TIMESTAMP DEFAULT NOW(),
+          change_type TEXT NOT NULL,
+          previous_level INTEGER,
+          difference INTEGER
+        )
+      `;
+
+      // Stock Alerts table
+      await sql`
+        CREATE TABLE IF NOT EXISTS stock_alerts (
+          id SERIAL PRIMARY KEY,
+          product_id INTEGER REFERENCES products(entity_id) ON DELETE CASCADE,
+          variant_id INTEGER,
+          sku TEXT NOT NULL,
+          alert_type TEXT NOT NULL,
+          inventory_level INTEGER NOT NULL,
+          threshold_level INTEGER NOT NULL,
+          triggered_at TIMESTAMP DEFAULT NOW(),
+          resolved_at TIMESTAMP,
+          is_active BOOLEAN DEFAULT true
+        )
+      `;
+
       // Indexes for performance
       await sql`CREATE INDEX IF NOT EXISTS idx_products_entity_id ON products(entity_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_products_sync_source ON products(sync_source)`;
@@ -193,6 +255,12 @@ export class VercelDatabase {
       await sql`CREATE INDEX IF NOT EXISTS idx_ai_content_product_id ON ai_content(product_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_ai_content_type ON ai_content(content_type)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_ai_content_status ON ai_content(status)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_stock_history_product_id ON stock_history(product_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_stock_history_recorded_at ON stock_history(recorded_at)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_stock_history_change_type ON stock_history(change_type)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_stock_alerts_product_id ON stock_alerts(product_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_stock_alerts_is_active ON stock_alerts(is_active)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_stock_alerts_alert_type ON stock_alerts(alert_type)`;
 
       console.log('✅ Database tables initialized successfully');
 
@@ -718,8 +786,8 @@ export class VercelDatabase {
 
     try {
       await sql`
-        UPDATE ai_content 
-        SET status = 'archived' 
+        UPDATE ai_content
+        SET status = 'archived'
         WHERE id = ${id}
       `;
 
@@ -729,6 +797,265 @@ export class VercelDatabase {
     } catch (error) {
       console.error(`❌ Failed to archive AI content ${id}:`, error);
       return false;
+    }
+  }
+
+  /**
+   * Record stock level change
+   */
+  static async recordStockChange(
+    productId: number,
+    variantId: number | null,
+    sku: string,
+    currentLevel: number,
+    warningLevel: number,
+    isInStock: boolean,
+    isVisible: boolean,
+    previousLevel?: number
+  ): Promise<void> {
+    if (!sql) return;
+
+    try {
+      // Determine change type
+      let changeType = 'initial';
+      let difference = null;
+
+      if (previousLevel !== undefined) {
+        difference = currentLevel - previousLevel;
+
+        if (previousLevel === 0 && currentLevel > 0) {
+          changeType = 'restock';
+        } else if (previousLevel > 0 && currentLevel === 0) {
+          changeType = 'out_of_stock';
+        } else if (difference > 0) {
+          changeType = 'increase';
+        } else if (difference < 0) {
+          changeType = 'decrease';
+        }
+      }
+
+      await sql`
+        INSERT INTO stock_history (
+          product_id, variant_id, sku, inventory_level, inventory_warning_level,
+          is_in_stock, is_visible, change_type, previous_level, difference
+        )
+        VALUES (
+          ${productId}, ${variantId}, ${sku}, ${currentLevel}, ${warningLevel},
+          ${isInStock}, ${isVisible}, ${changeType}, ${previousLevel}, ${difference}
+        )
+      `;
+
+      // Check for stock alerts
+      await this.checkStockAlerts(productId, variantId, sku, currentLevel, warningLevel, previousLevel);
+
+    } catch (error) {
+      console.error(`❌ Failed to record stock change for ${sku}:`, error);
+    }
+  }
+
+  /**
+   * Check and create stock alerts
+   */
+  static async checkStockAlerts(
+    productId: number,
+    variantId: number | null,
+    sku: string,
+    currentLevel: number,
+    warningLevel: number,
+    previousLevel?: number
+  ): Promise<void> {
+    if (!sql) return;
+
+    try {
+      // Check for out of stock alert
+      if (currentLevel === 0 && (previousLevel === undefined || previousLevel > 0)) {
+        await this.createStockAlert(productId, variantId, sku, 'out_of_stock', currentLevel, 0);
+      }
+
+      // Check for low stock alert
+      if (warningLevel > 0 && currentLevel > 0 && currentLevel <= warningLevel) {
+        await this.createStockAlert(productId, variantId, sku, 'low_stock', currentLevel, warningLevel);
+      }
+
+      // Check for restock alert
+      if (previousLevel !== undefined && previousLevel === 0 && currentLevel > 0) {
+        // Resolve previous out of stock alerts
+        await sql`
+          UPDATE stock_alerts
+          SET resolved_at = NOW(), is_active = false
+          WHERE product_id = ${productId}
+          AND (variant_id = ${variantId} OR (variant_id IS NULL AND ${variantId} IS NULL))
+          AND alert_type = 'out_of_stock'
+          AND is_active = true
+        `;
+
+        await this.createStockAlert(productId, variantId, sku, 'restock', currentLevel, 0);
+      }
+
+    } catch (error) {
+      console.error(`❌ Failed to check stock alerts for ${sku}:`, error);
+    }
+  }
+
+  /**
+   * Create stock alert
+   */
+  static async createStockAlert(
+    productId: number,
+    variantId: number | null,
+    sku: string,
+    alertType: 'low_stock' | 'out_of_stock' | 'restock',
+    inventoryLevel: number,
+    thresholdLevel: number
+  ): Promise<void> {
+    if (!sql) return;
+
+    try {
+      // Resolve existing alerts of same type first
+      await sql`
+        UPDATE stock_alerts
+        SET resolved_at = NOW(), is_active = false
+        WHERE product_id = ${productId}
+        AND (variant_id = ${variantId} OR (variant_id IS NULL AND ${variantId} IS NULL))
+        AND alert_type = ${alertType}
+        AND is_active = true
+      `;
+
+      // Create new alert
+      await sql`
+        INSERT INTO stock_alerts (
+          product_id, variant_id, sku, alert_type,
+          inventory_level, threshold_level
+        )
+        VALUES (
+          ${productId}, ${variantId}, ${sku}, ${alertType},
+          ${inventoryLevel}, ${thresholdLevel}
+        )
+      `;
+
+    } catch (error) {
+      console.error(`❌ Failed to create stock alert for ${sku}:`, error);
+    }
+  }
+
+  /**
+   * Get stock history for a product
+   */
+  static async getStockHistory(
+    productId: number,
+    variantId?: number,
+    limit: number = 50
+  ): Promise<DatabaseStockHistory[]> {
+    if (!sql) return [];
+
+    try {
+      const query = variantId
+        ? sql`
+            SELECT * FROM stock_history
+            WHERE product_id = ${productId} AND variant_id = ${variantId}
+            ORDER BY recorded_at DESC
+            LIMIT ${limit}
+          `
+        : sql`
+            SELECT * FROM stock_history
+            WHERE product_id = ${productId} AND variant_id IS NULL
+            ORDER BY recorded_at DESC
+            LIMIT ${limit}
+          `;
+
+      const rows = await query;
+      return rows as DatabaseStockHistory[];
+
+    } catch (error) {
+      console.error(`❌ Failed to get stock history for product ${productId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get active stock alerts
+   */
+  static async getActiveStockAlerts(): Promise<DatabaseStockAlert[]> {
+    if (!sql) return [];
+
+    try {
+      const rows = await sql`
+        SELECT sa.*, p.name as product_name
+        FROM stock_alerts sa
+        JOIN products p ON sa.product_id = p.entity_id
+        WHERE sa.is_active = true
+        ORDER BY sa.triggered_at DESC
+      `;
+
+      return rows as DatabaseStockAlert[];
+
+    } catch (error) {
+      console.error('❌ Failed to get active stock alerts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get latest stock levels for all products
+   */
+  static async getLatestStockLevels(): Promise<Map<string, DatabaseStockHistory>> {
+    if (!sql) return new Map();
+
+    try {
+      const rows = await sql`
+        SELECT DISTINCT ON (product_id, variant_id) *
+        FROM stock_history
+        ORDER BY product_id, variant_id, recorded_at DESC
+      `;
+
+      const stockMap = new Map<string, DatabaseStockHistory>();
+      rows.forEach((row: DatabaseStockHistory) => {
+        const key = row.variant_id ? `${row.product_id}_${row.variant_id}` : `${row.product_id}`;
+        stockMap.set(key, row);
+      });
+
+      return stockMap;
+
+    } catch (error) {
+      console.error('❌ Failed to get latest stock levels:', error);
+      return new Map();
+    }
+  }
+
+  /**
+   * Sync stock data from BigCommerce
+   */
+  static async syncStockData(inventoryItems: any[]): Promise<void> {
+    if (!sql) return;
+
+    try {
+      // Get current stock levels
+      const currentStock = await this.getLatestStockLevels();
+
+      for (const item of inventoryItems) {
+        const key = item.variantId ? `${item.productId}_${item.variantId}` : `${item.productId}`;
+        const previousRecord = currentStock.get(key);
+        const previousLevel = previousRecord?.inventory_level;
+
+        // Only record if level changed or this is the first record
+        if (!previousRecord || previousLevel !== item.inventoryLevel) {
+          await this.recordStockChange(
+            item.productId,
+            item.variantId || null,
+            item.sku,
+            item.inventoryLevel,
+            item.inventoryWarningLevel,
+            item.isInStock,
+            item.isVisible,
+            previousLevel
+          );
+        }
+      }
+
+      console.log(`✅ Synced ${inventoryItems.length} stock records`);
+
+    } catch (error) {
+      console.error('❌ Failed to sync stock data:', error);
     }
   }
 }
