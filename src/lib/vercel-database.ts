@@ -135,6 +135,25 @@ export interface ProductLifecycleEvent {
   bigcommerce_modified_date: string | null;
 }
 
+export interface DatabaseInferredStockPeriod {
+  id: number;
+  product_id: number;
+  variant_id: number | null;
+  period_type: 'inferred_out_of_stock' | 'likely_out_of_stock' | 'inferred_in_stock';
+  start_date: string;
+  end_date: string | null;
+  duration_days: number | null;
+  confidence_score: number;
+  detection_method: string;
+  reason: string;
+  expected_sales: number;
+  actual_sales: number;
+  sales_gap_percentage: number;
+  baseline_data: any;
+  created_at: string;
+  updated_at: string;
+}
+
 export class VercelDatabase {
   
   /**
@@ -282,6 +301,28 @@ export class VercelDatabase {
         )
       `;
 
+      // Inferred Stock Periods table for historical analysis
+      await sql`
+        CREATE TABLE IF NOT EXISTS inferred_stock_periods (
+          id SERIAL PRIMARY KEY,
+          product_id INTEGER REFERENCES products(entity_id) ON DELETE CASCADE,
+          variant_id INTEGER,
+          period_type TEXT NOT NULL CHECK (period_type IN ('inferred_out_of_stock', 'likely_out_of_stock', 'inferred_in_stock')),
+          start_date TIMESTAMP NOT NULL,
+          end_date TIMESTAMP,
+          duration_days INTEGER,
+          confidence_score DECIMAL(3,2) CHECK (confidence_score >= 0.00 AND confidence_score <= 1.00),
+          detection_method TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          expected_sales DECIMAL(10,2),
+          actual_sales DECIMAL(10,2),
+          sales_gap_percentage DECIMAL(5,2),
+          baseline_data JSONB,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `;
+
       // Indexes for performance
       await sql`CREATE INDEX IF NOT EXISTS idx_products_entity_id ON products(entity_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_products_sync_source ON products(sync_source)`;
@@ -302,6 +343,10 @@ export class VercelDatabase {
       await sql`CREATE INDEX IF NOT EXISTS idx_lifecycle_product_id ON product_lifecycle_events(product_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_lifecycle_event_type ON product_lifecycle_events(event_type)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_lifecycle_event_date ON product_lifecycle_events(event_date)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_inferred_stock_product_id ON inferred_stock_periods(product_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_inferred_stock_period_type ON inferred_stock_periods(period_type)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_inferred_stock_start_date ON inferred_stock_periods(start_date)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_inferred_stock_confidence ON inferred_stock_periods(confidence_score)`;
 
       console.log('✅ Database tables initialized successfully');
 
@@ -881,8 +926,8 @@ export class VercelDatabase {
           is_in_stock, is_visible, change_type, previous_level, difference
         )
         VALUES (
-          ${productId}, ${variantId}, ${sku}, ${currentLevel}, ${warningLevel},
-          ${isInStock}, ${isVisible}, ${changeType}, ${previousLevel}, ${difference}
+          ${productId}, ${variantId || null}, ${sku}, ${currentLevel}, ${warningLevel},
+          ${isInStock}, ${isVisible}, ${changeType}, ${previousLevel ?? null}, ${difference ?? null}
         )
       `;
 
@@ -969,7 +1014,7 @@ export class VercelDatabase {
           inventory_level, threshold_level
         )
         VALUES (
-          ${productId}, ${variantId}, ${sku}, ${alertType},
+          ${productId}, ${variantId || null}, ${sku}, ${alertType},
           ${inventoryLevel}, ${thresholdLevel}
         )
       `;
@@ -1109,6 +1154,9 @@ export class VercelDatabase {
           console.log(`🆕 New ${item.variantId ? 'variant' : 'product'} detected: ${item.productId}${item.variantId ? `-${item.variantId}` : ''}`);
         }
 
+        // Ensure product exists in database before recording stock changes
+        await this.ensureProduct(item.productId, item.name);
+
         // Only record if level changed or this is the first record
         if (!previousRecord || previousLevel !== item.inventoryLevel) {
           await this.recordStockChange(
@@ -1178,7 +1226,7 @@ export class VercelDatabase {
         )
         VALUES (
           ${productId}, ${variantId || null}, ${eventType}, ${previousStatus || null},
-          ${newStatus}, ${detectedBy}, ${bigcommerceCreatedDate || null},
+          ${newStatus || null}, ${detectedBy}, ${bigcommerceCreatedDate || null},
           ${bigcommerceModifiedDate || null}
         )
       `;
@@ -1306,6 +1354,153 @@ export class VercelDatabase {
     } catch (error) {
       console.error(`❌ Failed to get stock periods for product ${productId}:`, error);
       return [];
+    }
+  }
+
+  /**
+   * Store inferred stock periods from historical analysis
+   */
+  static async storeInferredStockPeriods(
+    productId: number,
+    variantId: number | null,
+    periods: {
+      period_type: 'inferred_out_of_stock' | 'likely_out_of_stock' | 'inferred_in_stock';
+      start_date: string;
+      end_date: string | null;
+      duration_days: number | null;
+      confidence_score: number;
+      detection_method: string;
+      reason: string;
+      expected_sales: number;
+      actual_sales: number;
+      sales_gap_percentage: number;
+      baseline_data: any;
+    }[]
+  ): Promise<void> {
+    if (!sql) {
+      console.log('Database not configured - skipping inferred periods storage');
+      return;
+    }
+
+    try {
+      // Ensure product exists in database
+      await this.ensureProduct(productId);
+
+      // Clear existing inferred periods for this product/variant
+      await sql`
+        DELETE FROM inferred_stock_periods
+        WHERE product_id = ${productId}
+        AND (variant_id = ${variantId} OR (variant_id IS NULL AND ${variantId} IS NULL))
+      `;
+
+      // Insert new inferred periods
+      for (const period of periods) {
+        await sql`
+          INSERT INTO inferred_stock_periods (
+            product_id, variant_id, period_type, start_date, end_date, duration_days,
+            confidence_score, detection_method, reason, expected_sales, actual_sales,
+            sales_gap_percentage, baseline_data
+          ) VALUES (
+            ${productId}, ${variantId || null}, ${period.period_type}, ${period.start_date},
+            ${period.end_date}, ${period.duration_days}, ${period.confidence_score},
+            ${period.detection_method}, ${period.reason || null}, ${period.expected_sales || null},
+            ${period.actual_sales || null}, ${period.sales_gap_percentage || null}, ${JSON.stringify(period.baseline_data || {})}
+          )
+        `;
+      }
+
+      console.log(`✅ Stored ${periods.length} inferred stock periods for product ${productId}`);
+
+    } catch (error) {
+      console.error(`❌ Failed to store inferred stock periods for product ${productId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get inferred stock periods for a product
+   */
+  static async getInferredStockPeriods(
+    productId: number,
+    variantId?: number | null
+  ): Promise<DatabaseInferredStockPeriod[]> {
+    if (!sql) {
+      console.log('Database not configured - returning empty inferred periods');
+      return [];
+    }
+
+    try {
+      const result = await sql`
+        SELECT * FROM inferred_stock_periods
+        WHERE product_id = ${productId}
+        AND (variant_id = ${variantId || null} OR (variant_id IS NULL AND ${variantId || null} IS NULL))
+        ORDER BY start_date ASC
+      `;
+
+      return result.map((row: any) => ({
+        ...row,
+        baseline_data: typeof row.baseline_data === 'string' ? JSON.parse(row.baseline_data) : row.baseline_data
+      }));
+
+    } catch (error) {
+      console.error(`❌ Failed to get inferred stock periods for product ${productId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all inferred stock periods with confidence threshold
+   */
+  static async getInferredStockPeriodsWithConfidence(
+    minConfidence: number = 0.6
+  ): Promise<DatabaseInferredStockPeriod[]> {
+    if (!sql) {
+      console.log('Database not configured - returning empty inferred periods');
+      return [];
+    }
+
+    try {
+      const result = await sql`
+        SELECT isp.*, p.name as product_name
+        FROM inferred_stock_periods isp
+        LEFT JOIN products p ON isp.product_id = p.entity_id
+        WHERE isp.confidence_score >= ${minConfidence}
+        ORDER BY isp.start_date DESC
+      `;
+
+      return result.map((row: any) => ({
+        ...row,
+        baseline_data: typeof row.baseline_data === 'string' ? JSON.parse(row.baseline_data) : row.baseline_data
+      }));
+
+    } catch (error) {
+      console.error('❌ Failed to get inferred stock periods with confidence:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Clean up old inferred stock periods (older than 2 years)
+   */
+  static async cleanOldInferredPeriods(): Promise<void> {
+    if (!sql) {
+      console.log('Database not configured - skipping cleanup');
+      return;
+    }
+
+    try {
+      const twoYearsAgo = new Date();
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
+      const result = await sql`
+        DELETE FROM inferred_stock_periods
+        WHERE start_date < ${twoYearsAgo.toISOString()}
+      `;
+
+      console.log(`✅ Cleaned up ${result.count} old inferred stock periods`);
+
+    } catch (error) {
+      console.error('❌ Failed to clean old inferred periods:', error);
     }
   }
 }

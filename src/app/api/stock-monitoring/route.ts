@@ -369,10 +369,11 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      const [lifecycleEvents, stockHistory, stockPeriods] = await Promise.all([
+      const [lifecycleEvents, stockHistory, stockPeriods, inferredStockPeriods] = await Promise.all([
         VercelDatabase.getProductLifecycleEvents(productId, variantId),
         VercelDatabase.getStockHistory(productId, variantId, 200),
-        VercelDatabase.getStockPeriods(productId, variantId)
+        VercelDatabase.getStockPeriods(productId, variantId),
+        VercelDatabase.getInferredStockPeriods(productId, variantId)
       ]);
 
       return NextResponse.json({
@@ -380,14 +381,79 @@ export async function POST(request: NextRequest) {
         data: {
           lifecycleEvents,
           stockHistory,
-          stockPeriods
+          stockPeriods,
+          inferredStockPeriods
         }
       });
     }
 
+    if (action === 'generateInferredHistory') {
+      const { productId, variantId } = body;
+
+      if (!productId) {
+        return NextResponse.json({
+          success: false,
+          error: 'Product ID is required for inference generation'
+        }, { status: 400 });
+      }
+
+      try {
+        // Call the analytics API to generate inferred stock periods
+        const analyticsResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/analytics/historical-stock-inference`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId, variantId })
+        });
+
+        const analyticsData = await analyticsResponse.json();
+
+        if (analyticsData.success && analyticsData.data.inferredStockOuts) {
+          // Store the inferred periods in the database
+          const periods = analyticsData.data.inferredStockOuts.map((period: any) => ({
+            period_type: 'inferred_out_of_stock' as const,
+            start_date: period.startDate,
+            end_date: period.endDate,
+            duration_days: period.durationDays,
+            confidence_score: period.confidence,
+            detection_method: period.detectionMethod,
+            reason: period.reason,
+            expected_sales: period.expectedSales,
+            actual_sales: period.actualSales,
+            sales_gap_percentage: period.salesGapPercentage,
+            baseline_data: analyticsData.data.baseline
+          }));
+
+          await VercelDatabase.storeInferredStockPeriods(productId, variantId || null, periods);
+
+          return NextResponse.json({
+            success: true,
+            data: {
+              inferredStockOuts: analyticsData.data.inferredStockOuts,
+              baseline: analyticsData.data.baseline,
+              confidence: analyticsData.data.confidence,
+              dataPoints: analyticsData.data.dataPoints,
+              stored: true
+            }
+          });
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: analyticsData.error || 'Failed to generate inferred history'
+          }, { status: 500 });
+        }
+
+      } catch (error) {
+        console.error('Error generating inferred history:', error);
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to connect to analytics service'
+        }, { status: 500 });
+      }
+    }
+
     return NextResponse.json({
       success: false,
-      error: 'Invalid action. Use "sync", "getHistory", "getAlerts", "getStockPeriods", or "getCompleteHistory".'
+      error: 'Invalid action. Use "sync", "getHistory", "getAlerts", "getStockPeriods", "getCompleteHistory", or "generateInferredHistory".'
     }, { status: 400 });
 
   } catch (error) {

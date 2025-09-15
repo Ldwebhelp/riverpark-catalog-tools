@@ -46,6 +46,30 @@ export interface BigCommerceBrand {
   name: string;
 }
 
+export interface BigCommerceOrder {
+  id: number;
+  date_created: string;
+  date_modified: string;
+  date_shipped?: string;
+  status: string;
+  customer_id: number;
+  total_inc_tax: number;
+  products?: {
+    resource: string;
+  };
+}
+
+export interface BigCommerceOrderProduct {
+  id: number;
+  order_id: number;
+  product_id: number;
+  variant_id: number | null;
+  quantity: number;
+  name: string;
+  sku: string;
+  base_price: number;
+}
+
 export class BigCommerceDirect {
   private config: BigCommerceConfig;
   private brandCache = new Map<number, string>();
@@ -271,6 +295,64 @@ export class BigCommerceDirect {
   }
 
   /**
+   * Get orders with date filtering for analytics
+   */
+  async getOrders(params: {
+    limit?: number;
+    page?: number;
+    min_date_created?: string;
+    max_date_created?: string;
+    sort?: string;
+  }): Promise<{ data: BigCommerceOrder[] }> {
+    try {
+      const queryParams = new URLSearchParams();
+
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.min_date_created) queryParams.append('min_date_created', params.min_date_created);
+      if (params.max_date_created) queryParams.append('max_date_created', params.max_date_created);
+      if (params.sort) queryParams.append('sort', params.sort);
+
+      const response = await fetch(
+        `${this.config.storeUrl}orders?${queryParams.toString()}`,
+        { headers: this.getHeaders() }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Orders API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return { data: data.data || [] };
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get products for a specific order
+   */
+  async getOrderProducts(orderId: number): Promise<{ data: BigCommerceOrderProduct[] }> {
+    try {
+      const response = await fetch(
+        `${this.config.storeUrl}orders/${orderId}/products`,
+        { headers: this.getHeaders() }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Order products API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return { data: data.data || [] };
+    } catch (error) {
+      console.error(`Error fetching products for order ${orderId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get API headers
    */
   private getHeaders(): Record<string, string> {
@@ -281,6 +363,9 @@ export class BigCommerceDirect {
     };
   }
 }
+
+// Alias for analytics compatibility
+export class BigCommerceAPI extends BigCommerceDirect {}
 
 /**
  * Create BigCommerce instance from environment variables

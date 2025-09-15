@@ -73,6 +73,25 @@ interface ProductLifecycleEvent {
   bigcommerce_modified_date: string | null;
 }
 
+interface InferredStockPeriod {
+  id: number;
+  product_id: number;
+  variant_id: number | null;
+  period_type: 'inferred_out_of_stock' | 'likely_out_of_stock' | 'inferred_in_stock';
+  start_date: string;
+  end_date: string | null;
+  duration_days: number | null;
+  confidence_score: number;
+  detection_method: string;
+  reason: string;
+  expected_sales: number;
+  actual_sales: number;
+  sales_gap_percentage: number;
+  baseline_data: any;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function StockMonitor() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [summary, setSummary] = useState<StockSummary | null>(null);
@@ -89,7 +108,9 @@ export default function StockMonitor() {
   const [modalProduct, setModalProduct] = useState<InventoryItem | null>(null);
   const [stockPeriods, setStockPeriods] = useState<StockPeriod[]>([]);
   const [lifecycleEvents, setLifecycleEvents] = useState<ProductLifecycleEvent[]>([]);
+  const [inferredStockPeriods, setInferredStockPeriods] = useState<InferredStockPeriod[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
+  const [generatingInference, setGeneratingInference] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -216,6 +237,7 @@ export default function StockMonitor() {
       if (data.success) {
         setStockPeriods(data.data.stockPeriods);
         setLifecycleEvents(data.data.lifecycleEvents);
+        setInferredStockPeriods(data.data.inferredStockPeriods || []);
       }
     } catch (error) {
       console.error('Failed to load complete history:', error);
@@ -229,6 +251,35 @@ export default function StockMonitor() {
     setModalProduct(null);
     setStockPeriods([]);
     setLifecycleEvents([]);
+    setInferredStockPeriods([]);
+    setGeneratingInference(false);
+  };
+
+  const generateInferredHistory = async (product: InventoryItem) => {
+    setGeneratingInference(true);
+    try {
+      const response = await fetch('/api/stock-monitoring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generateInferredHistory',
+          productId: product.productId,
+          variantId: product.variantId
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Reload the complete history to get the newly stored inferred periods
+        await showProductModal(product);
+      } else {
+        console.error('Failed to generate inferred history:', data.error);
+      }
+    } catch (error) {
+      console.error('Error generating inferred history:', error);
+    } finally {
+      setGeneratingInference(false);
+    }
   };
 
   const filteredInventory = inventory.filter(item => {
@@ -298,6 +349,34 @@ export default function StockMonitor() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getConfidenceBadge = (confidence: number) => {
+    if (confidence >= 0.8) {
+      return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">High Confidence</span>;
+    } else if (confidence >= 0.6) {
+      return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">Medium Confidence</span>;
+    } else {
+      return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">Low Confidence</span>;
+    }
+  };
+
+  const getInferredPeriodIcon = (periodType: string) => {
+    switch (periodType) {
+      case 'inferred_out_of_stock': return '🔍';
+      case 'likely_out_of_stock': return '⚠️';
+      case 'inferred_in_stock': return '✅';
+      default: return '📊';
+    }
+  };
+
+  const getInferredPeriodLabel = (periodType: string) => {
+    switch (periodType) {
+      case 'inferred_out_of_stock': return 'Inferred Out of Stock';
+      case 'likely_out_of_stock': return 'Likely Out of Stock';
+      case 'inferred_in_stock': return 'Inferred In Stock';
+      default: return periodType;
+    }
   };
 
   const renderOverview = () => (
@@ -624,12 +703,40 @@ export default function StockMonitor() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Current Product Status */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-lg">📊</span>
+                      <h4 className="text-md font-medium text-blue-900">Current Product Status</h4>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-blue-600 font-medium">Stock Level</div>
+                        <div className="text-gray-900">{modalProduct?.inventoryLevel || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-blue-600 font-medium">Warning Level</div>
+                        <div className="text-gray-900">{modalProduct?.inventoryWarningLevel || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-blue-600 font-medium">Status</div>
+                        <div>{modalProduct && getStockStatusBadge(modalProduct)}</div>
+                      </div>
+                      <div>
+                        <div className="text-blue-600 font-medium">Last Updated</div>
+                        <div className="text-gray-900 text-xs">
+                          {modalProduct ? formatDateTime(modalProduct.lastUpdated) : '-'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Product Lifecycle Timeline */}
                   {lifecycleEvents.length > 0 && (
                     <div className="space-y-4">
                       <h4 className="text-md font-medium text-gray-900">Product Lifecycle Timeline</h4>
                       <div className="text-sm text-gray-600">
-                        Complete history from when the product was added to BigCommerce to current date
+                        When this product was added to your BigCommerce store
                       </div>
 
                       <div className="bg-gray-50 rounded-lg p-4">
@@ -759,13 +866,201 @@ export default function StockMonitor() {
                     </div>
                   )}
 
-                  {/* No data message */}
+                  {/* Historical Inference Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-md font-medium text-gray-900">
+                        🧠 AI-Inferred Historical Stock Analysis
+                      </h4>
+                      {modalProduct && (
+                        <button
+                          onClick={() => generateInferredHistory(modalProduct)}
+                          disabled={generatingInference}
+                          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                            generatingInference
+                              ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                              : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                          }`}
+                        >
+                          {generatingInference ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-500 inline" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Analyzing...
+                            </>
+                          ) : (
+                            <>
+                              🔍 Generate Historical Analysis
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="text-sm text-gray-600">
+                      Analyze your sales data to infer when this product was likely out of stock in the past
+                    </div>
+
+                    {inferredStockPeriods.length > 0 ? (
+                      <div className="space-y-4">
+                        {/* Inferred Periods Summary */}
+                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className="text-lg">🎯</span>
+                            <h5 className="text-sm font-medium text-purple-900">Analysis Results</h5>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <div className="text-purple-600 font-medium">Inferred Out-of-Stock Periods</div>
+                              <div className="text-gray-900 text-lg font-bold">
+                                {inferredStockPeriods.filter(p => p.period_type === 'inferred_out_of_stock').length}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-purple-600 font-medium">Average Confidence</div>
+                              <div className="text-gray-900 text-lg font-bold">
+                                {Math.round(inferredStockPeriods.reduce((sum, p) => sum + p.confidence_score, 0) / inferredStockPeriods.length * 100)}%
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-purple-600 font-medium">Total Inferred Days Out</div>
+                              <div className="text-gray-900 text-lg font-bold">
+                                {inferredStockPeriods.reduce((sum, p) => sum + (p.duration_days || 0), 0)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Inferred Periods Table */}
+                        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                          <table className="min-w-full divide-y divide-gray-300">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Period
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Start Date
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Duration
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Confidence
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Detection Method
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {inferredStockPeriods.map((period, index) => (
+                                <tr key={index} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-lg">{getInferredPeriodIcon(period.period_type)}</span>
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {getInferredPeriodLabel(period.period_type)}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                    {formatDateTime(period.start_date)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                    {period.duration_days ? (
+                                      period.duration_days === 1 ? '1 day' : `${period.duration_days} days`
+                                    ) : (
+                                      <span className="text-orange-600 font-medium">Ongoing</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    {getConfidenceBadge(period.confidence_score)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {period.detection_method.replace('_', ' ').toUpperCase()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Detailed Analysis */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-lg">📊</span>
+                            <h5 className="text-sm font-medium text-blue-900">Analysis Details</h5>
+                          </div>
+                          <div className="space-y-2 text-sm text-blue-800">
+                            {inferredStockPeriods.slice(0, 3).map((period, index) => (
+                              <div key={index} className="bg-white rounded p-2">
+                                <div className="font-medium">
+                                  {formatDateTime(period.start_date)} - {period.end_date ? formatDateTime(period.end_date) : 'Ongoing'}
+                                </div>
+                                <div className="text-xs text-gray-600 mt-1">
+                                  {period.reason}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Expected: {period.expected_sales.toFixed(1)} sales | Actual: {period.actual_sales} sales
+                                </div>
+                              </div>
+                            ))}
+                            {inferredStockPeriods.length > 3 && (
+                              <div className="text-xs text-blue-600 font-medium">
+                                + {inferredStockPeriods.length - 3} more periods
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-lg">🤖</span>
+                          <h5 className="text-sm font-medium text-gray-700">No Historical Analysis Available</h5>
+                        </div>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <p>Click &ldquo;Generate Historical Analysis&rdquo; to analyze your sales data and infer past out-of-stock periods.</p>
+                          <p className="text-xs text-gray-500">
+                            This analysis uses AI to examine sales patterns and identify likely stock-out periods from your BigCommerce order history.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Enhanced no data message with explanation */}
                   {lifecycleEvents.length === 0 && stockPeriods.length === 0 && (
-                    <div className="text-center py-12">
-                      <div className="text-gray-500 text-lg">No history available</div>
-                      <p className="text-sm text-gray-400 mt-2">
-                        Product lifecycle and stock tracking data will appear here once changes are detected.
-                      </p>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <span className="text-xl">ℹ️</span>
+                        <h4 className="text-md font-medium text-yellow-900">Historical Data Not Available</h4>
+                      </div>
+                      <div className="text-sm text-yellow-800 space-y-2">
+                        <p>
+                          <strong>Why no history is showing:</strong> The BigCommerce API only provides current inventory levels,
+                          not historical stock changes. This stock monitoring system is designed to track changes going forward.
+                        </p>
+                        <p>
+                          <strong>What this means:</strong> Even though your BigCommerce store has been running for 2+ years,
+                          we can only track stock changes from when this monitoring system was first activated.
+                        </p>
+                        <p>
+                          <strong>Going forward:</strong> This system will capture all future stock level changes,
+                          in/out of stock events, and product lifecycle events to build a comprehensive history.
+                        </p>
+                      </div>
+                      <div className="mt-4 p-3 bg-white rounded border border-yellow-300">
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900 mb-1">Current tracking status:</div>
+                          <div className="text-gray-600">✅ Product lifecycle tracking active</div>
+                          <div className="text-gray-600">✅ Stock level monitoring active</div>
+                          <div className="text-gray-600">✅ Future changes will be recorded</div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
