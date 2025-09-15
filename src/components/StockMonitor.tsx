@@ -767,8 +767,8 @@ export default function StockMonitor() {
                     </div>
                   )}
 
-                  {/* Stock Availability Periods */}
-                  {stockPeriods.length > 0 && (
+                  {/* Stock Availability Periods - DISABLED: Shows misleading dates from initial sync */}
+                  {false && stockPeriods.length > 0 && (
                     <div className="space-y-4">
                       <h4 className="text-md font-medium text-gray-900">Stock Availability History</h4>
                       <div className="text-sm text-gray-600">
@@ -866,15 +866,15 @@ export default function StockMonitor() {
                     </div>
                   )}
 
-                  {/* Historical Inference Section */}
-                  <div className="space-y-4">
+                  {/* Historical Inference Section - DISABLED: BigCommerce orders API access restricted */}
+                  {false && <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-md font-medium text-gray-900">
-                        🧠 AI-Inferred Historical Stock Analysis
+                        🧠 AI-Inferred Historical Stock Analysis (DISABLED)
                       </h4>
                       {modalProduct && (
                         <button
-                          onClick={() => generateInferredHistory(modalProduct)}
+                          onClick={() => modalProduct && generateInferredHistory(modalProduct)}
                           disabled={generatingInference}
                           className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                             generatingInference
@@ -1030,7 +1030,7 @@ export default function StockMonitor() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </div>}
 
                   {/* Enhanced no data message with explanation */}
                   {lifecycleEvents.length === 0 && stockPeriods.length === 0 && (
