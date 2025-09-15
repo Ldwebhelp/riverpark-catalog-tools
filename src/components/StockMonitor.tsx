@@ -51,6 +51,28 @@ interface StockAlert {
   product_name?: string;
 }
 
+interface StockPeriod {
+  period_type: 'in_stock' | 'out_of_stock';
+  start_date: string;
+  end_date: string | null;
+  duration_days: number | null;
+  start_level: number;
+  end_level: number | null;
+}
+
+interface ProductLifecycleEvent {
+  id: number;
+  product_id: number;
+  variant_id: number | null;
+  event_type: 'product_added' | 'product_deleted' | 'variant_added' | 'variant_deleted' | 'product_reactivated';
+  event_date: string;
+  previous_status: string | null;
+  new_status: string;
+  detected_by: string;
+  bigcommerce_created_date: string | null;
+  bigcommerce_modified_date: string | null;
+}
+
 export default function StockMonitor() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [summary, setSummary] = useState<StockSummary | null>(null);
@@ -61,6 +83,13 @@ export default function StockMonitor() {
   const [view, setView] = useState<'overview' | 'inventory' | 'alerts' | 'history'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'out_of_stock' | 'low_stock'>('all');
+
+  // Modal state for stock periods
+  const [showModal, setShowModal] = useState(false);
+  const [modalProduct, setModalProduct] = useState<InventoryItem | null>(null);
+  const [stockPeriods, setStockPeriods] = useState<StockPeriod[]>([]);
+  const [lifecycleEvents, setLifecycleEvents] = useState<ProductLifecycleEvent[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -167,9 +196,45 @@ export default function StockMonitor() {
     }
   };
 
+  const showProductModal = async (product: InventoryItem) => {
+    setModalProduct(product);
+    setShowModal(true);
+    setModalLoading(true);
+
+    try {
+      const response = await fetch('/api/stock-monitoring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'getCompleteHistory',
+          productId: product.productId,
+          variantId: product.variantId
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setStockPeriods(data.data.stockPeriods);
+        setLifecycleEvents(data.data.lifecycleEvents);
+      }
+    } catch (error) {
+      console.error('Failed to load complete history:', error);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setModalProduct(null);
+    setStockPeriods([]);
+    setLifecycleEvents([]);
+  };
+
   const filteredInventory = inventory.filter(item => {
+    const productIdString = `${item.productId}${item.variantId ? `-${item.variantId}` : ''}`;
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.sku.toLowerCase().includes(searchTerm.toLowerCase());
+                         productIdString.includes(searchTerm.toLowerCase());
 
     const matchesFilter =
       stockFilter === 'all' ? true :
@@ -200,6 +265,28 @@ export default function StockMonitor() {
       case 'restock': return '🔄';
       case 'out_of_stock': return '❌';
       default: return '📊';
+    }
+  };
+
+  const getLifecycleEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'product_added': return '🆕';
+      case 'variant_added': return '🆕';
+      case 'product_deleted': return '🗑️';
+      case 'variant_deleted': return '🗑️';
+      case 'product_reactivated': return '🔄';
+      default: return '📅';
+    }
+  };
+
+  const getLifecycleEventLabel = (eventType: string) => {
+    switch (eventType) {
+      case 'product_added': return 'Product Added to BigCommerce';
+      case 'variant_added': return 'Variant Added to BigCommerce';
+      case 'product_deleted': return 'Product Deleted from BigCommerce';
+      case 'variant_deleted': return 'Variant Deleted from BigCommerce';
+      case 'product_reactivated': return 'Product Reactivated';
+      default: return eventType.replace('_', ' ').toUpperCase();
     }
   };
 
@@ -274,7 +361,7 @@ export default function StockMonitor() {
       <div className="flex flex-col sm:flex-row gap-4">
         <input
           type="text"
-          placeholder="Search products or SKUs..."
+          placeholder="Search products or Product IDs..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -297,7 +384,7 @@ export default function StockMonitor() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product ID</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Level</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Warning Level</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -309,9 +396,16 @@ export default function StockMonitor() {
             {filteredInventory.map((item) => (
               <tr key={`${item.productId}-${item.variantId || 'main'}`} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                  <button
+                    onClick={() => showProductModal(item)}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-900 text-left"
+                  >
+                    {item.name}
+                  </button>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.sku}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.productId}{item.variantId ? `-${item.variantId}` : ''}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.inventoryLevel}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.inventoryWarningLevel}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{getStockStatusBadge(item)}</td>
@@ -497,6 +591,198 @@ export default function StockMonitor() {
           {view === 'alerts' && renderAlerts()}
           {view === 'history' && renderHistory()}
         </>
+      )}
+
+      {/* Stock Periods Modal */}
+      {showModal && modalProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">Stock History</h3>
+                  <p className="text-sm text-gray-600 mt-1">{modalProduct.name}</p>
+                  <p className="text-xs text-gray-500">
+                    Product ID: {modalProduct.productId}{modalProduct.variantId ? `-${modalProduct.variantId}` : ''}
+                  </p>
+                </div>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <span className="text-2xl">×</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {modalLoading ? (
+                <div className="flex justify-center items-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Product Lifecycle Timeline */}
+                  {lifecycleEvents.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-md font-medium text-gray-900">Product Lifecycle Timeline</h4>
+                      <div className="text-sm text-gray-600">
+                        Complete history from when the product was added to BigCommerce to current date
+                      </div>
+
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="space-y-3">
+                          {lifecycleEvents.map((event) => (
+                            <div key={event.id} className="flex items-center space-x-3 text-sm">
+                              <span className="text-lg">{getLifecycleEventIcon(event.event_type)}</span>
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">
+                                  {getLifecycleEventLabel(event.event_type)}
+                                </div>
+                                <div className="text-gray-500">
+                                  {formatDateTime(event.event_date)}
+                                  {event.bigcommerce_created_date && event.bigcommerce_created_date !== event.event_date && (
+                                    <span className="ml-2 text-xs">
+                                      (BigCommerce: {formatDateTime(event.bigcommerce_created_date)})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {event.detected_by}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stock Availability Periods */}
+                  {stockPeriods.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-md font-medium text-gray-900">Stock Availability History</h4>
+                      <div className="text-sm text-gray-600">
+                        Stock availability periods showing when this product was in stock vs out of stock
+                      </div>
+
+                      <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-300">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Start Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            End Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Duration
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Stock Level
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {stockPeriods.map((period, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                period.period_type === 'in_stock'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {period.period_type === 'in_stock' ? '✅ In Stock' : '❌ Out of Stock'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatDateTime(period.start_date)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {period.end_date ? formatDateTime(period.end_date) : (
+                                <span className="text-green-600 font-medium">Ongoing</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {period.duration_days !== null ? (
+                                period.duration_days === 1 ? '1 day' : `${period.duration_days} days`
+                              ) : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <div className="flex items-center space-x-2">
+                                <span>{period.start_level}</span>
+                                {period.end_level !== null && period.end_level !== period.start_level && (
+                                  <>
+                                    <span className="text-gray-400">→</span>
+                                    <span>{period.end_level}</span>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                      {/* Summary Stats */}
+                      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-green-50 p-4 rounded-lg">
+                          <div className="text-sm font-medium text-green-800">Total In-Stock Time</div>
+                          <div className="text-lg font-bold text-green-900">
+                            {stockPeriods
+                              .filter(p => p.period_type === 'in_stock')
+                              .reduce((total, p) => total + (p.duration_days || 0), 0)} days
+                          </div>
+                        </div>
+                        <div className="bg-red-50 p-4 rounded-lg">
+                          <div className="text-sm font-medium text-red-800">Total Out-of-Stock Time</div>
+                          <div className="text-lg font-bold text-red-900">
+                            {stockPeriods
+                              .filter(p => p.period_type === 'out_of_stock')
+                              .reduce((total, p) => total + (p.duration_days || 0), 0)} days
+                          </div>
+                        </div>
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <div className="text-sm font-medium text-blue-800">Stock Changes</div>
+                          <div className="text-lg font-bold text-blue-900">
+                            {stockPeriods.length} periods
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No data message */}
+                  {lifecycleEvents.length === 0 && stockPeriods.length === 0 && (
+                    <div className="text-center py-12">
+                      <div className="text-gray-500 text-lg">No history available</div>
+                      <p className="text-sm text-gray-400 mt-2">
+                        Product lifecycle and stock tracking data will appear here once changes are detected.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

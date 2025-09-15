@@ -77,22 +77,13 @@ class BigCommerceInventoryAPI {
         }
 
         for (const product of products) {
-          // Handle main product inventory
-          if (product.inventory_level !== undefined) {
-            inventoryItems.push({
-              productId: product.id,
-              sku: product.sku || `product-${product.id}`,
-              name: product.name,
-              inventoryLevel: product.inventory_level || 0,
-              inventoryWarningLevel: product.inventory_warning_level || 0,
-              isInStock: (product.inventory_level || 0) > 0,
-              isVisible: product.is_visible,
-              lastUpdated: product.date_modified || new Date().toISOString()
-            });
-          }
+          // Check if product has actual variants with different options
+          const hasRealVariants = product.variants &&
+                                product.variants.length > 0 &&
+                                product.variants.some((v: any) => v.option_values && v.option_values.length > 0);
 
-          // Handle variant inventory if product has variants
-          if (product.variants && product.variants.length > 0) {
+          if (hasRealVariants) {
+            // Product has actual variants - show variants only
             for (const variant of product.variants) {
               if (variant.inventory_level !== undefined) {
                 inventoryItems.push({
@@ -107,6 +98,20 @@ class BigCommerceInventoryAPI {
                   lastUpdated: variant.date_modified || product.date_modified || new Date().toISOString()
                 });
               }
+            }
+          } else {
+            // Product has no real variants - show main product only
+            if (product.inventory_level !== undefined) {
+              inventoryItems.push({
+                productId: product.id,
+                sku: product.sku || `product-${product.id}`,
+                name: product.name,
+                inventoryLevel: product.inventory_level || 0,
+                inventoryWarningLevel: product.inventory_warning_level || 0,
+                isInStock: (product.inventory_level || 0) > 0,
+                isVisible: product.is_visible,
+                lastUpdated: product.date_modified || new Date().toISOString()
+              });
             }
           }
         }
@@ -161,20 +166,13 @@ class BigCommerceInventoryAPI {
         const products = data.data || [];
 
         for (const product of products) {
-          if (product.inventory_level !== undefined) {
-            inventoryItems.push({
-              productId: product.id,
-              sku: product.sku || `product-${product.id}`,
-              name: product.name,
-              inventoryLevel: product.inventory_level || 0,
-              inventoryWarningLevel: product.inventory_warning_level || 0,
-              isInStock: (product.inventory_level || 0) > 0,
-              isVisible: product.is_visible,
-              lastUpdated: product.date_modified || new Date().toISOString()
-            });
-          }
+          // Check if product has actual variants with different options
+          const hasRealVariants = product.variants &&
+                                product.variants.length > 0 &&
+                                product.variants.some((v: any) => v.option_values && v.option_values.length > 0);
 
-          if (product.variants && product.variants.length > 0) {
+          if (hasRealVariants) {
+            // Product has actual variants - show variants only
             for (const variant of product.variants) {
               if (variant.inventory_level !== undefined) {
                 inventoryItems.push({
@@ -189,6 +187,20 @@ class BigCommerceInventoryAPI {
                   lastUpdated: variant.date_modified || product.date_modified || new Date().toISOString()
                 });
               }
+            }
+          } else {
+            // Product has no real variants - show main product only
+            if (product.inventory_level !== undefined) {
+              inventoryItems.push({
+                productId: product.id,
+                sku: product.sku || `product-${product.id}`,
+                name: product.name,
+                inventoryLevel: product.inventory_level || 0,
+                inventoryWarningLevel: product.inventory_warning_level || 0,
+                isInStock: (product.inventory_level || 0) > 0,
+                isVisible: product.is_visible,
+                lastUpdated: product.date_modified || new Date().toISOString()
+              });
             }
           }
         }
@@ -329,9 +341,53 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (action === 'getStockPeriods') {
+      const { productId, variantId } = body;
+
+      if (!productId) {
+        return NextResponse.json({
+          success: false,
+          error: 'Product ID is required for stock periods'
+        }, { status: 400 });
+      }
+
+      const periods = await VercelDatabase.getStockPeriods(productId, variantId);
+
+      return NextResponse.json({
+        success: true,
+        data: { periods }
+      });
+    }
+
+    if (action === 'getCompleteHistory') {
+      const { productId, variantId } = body;
+
+      if (!productId) {
+        return NextResponse.json({
+          success: false,
+          error: 'Product ID is required for complete history'
+        }, { status: 400 });
+      }
+
+      const [lifecycleEvents, stockHistory, stockPeriods] = await Promise.all([
+        VercelDatabase.getProductLifecycleEvents(productId, variantId),
+        VercelDatabase.getStockHistory(productId, variantId, 200),
+        VercelDatabase.getStockPeriods(productId, variantId)
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          lifecycleEvents,
+          stockHistory,
+          stockPeriods
+        }
+      });
+    }
+
     return NextResponse.json({
       success: false,
-      error: 'Invalid action. Use "sync", "getHistory", or "getAlerts".'
+      error: 'Invalid action. Use "sync", "getHistory", "getAlerts", "getStockPeriods", or "getCompleteHistory".'
     }, { status: 400 });
 
   } catch (error) {

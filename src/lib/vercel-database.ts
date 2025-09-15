@@ -113,6 +113,28 @@ export interface DatabaseStockAlert {
   is_active: boolean;
 }
 
+export interface StockPeriod {
+  period_type: 'in_stock' | 'out_of_stock';
+  start_date: string;
+  end_date: string | null;
+  duration_days: number | null;
+  start_level: number;
+  end_level: number | null;
+}
+
+export interface ProductLifecycleEvent {
+  id: number;
+  product_id: number;
+  variant_id: number | null;
+  event_type: 'product_added' | 'product_deleted' | 'variant_added' | 'variant_deleted' | 'product_reactivated';
+  event_date: string;
+  previous_status: string | null;
+  new_status: string;
+  detected_by: string;
+  bigcommerce_created_date: string | null;
+  bigcommerce_modified_date: string | null;
+}
+
 export class VercelDatabase {
   
   /**
@@ -244,6 +266,22 @@ export class VercelDatabase {
         )
       `;
 
+      // Product Lifecycle Events table
+      await sql`
+        CREATE TABLE IF NOT EXISTS product_lifecycle_events (
+          id SERIAL PRIMARY KEY,
+          product_id INTEGER NOT NULL,
+          variant_id INTEGER,
+          event_type TEXT NOT NULL,
+          event_date TIMESTAMP DEFAULT NOW(),
+          previous_status TEXT,
+          new_status TEXT NOT NULL,
+          detected_by TEXT NOT NULL DEFAULT 'system',
+          bigcommerce_created_date TIMESTAMP,
+          bigcommerce_modified_date TIMESTAMP
+        )
+      `;
+
       // Indexes for performance
       await sql`CREATE INDEX IF NOT EXISTS idx_products_entity_id ON products(entity_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_products_sync_source ON products(sync_source)`;
@@ -261,6 +299,9 @@ export class VercelDatabase {
       await sql`CREATE INDEX IF NOT EXISTS idx_stock_alerts_product_id ON stock_alerts(product_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_stock_alerts_is_active ON stock_alerts(is_active)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_stock_alerts_alert_type ON stock_alerts(alert_type)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_lifecycle_product_id ON product_lifecycle_events(product_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_lifecycle_event_type ON product_lifecycle_events(event_type)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_lifecycle_event_date ON product_lifecycle_events(event_date)`;
 
       console.log('✅ Database tables initialized successfully');
 
@@ -1029,13 +1070,44 @@ export class VercelDatabase {
     if (!sql) return;
 
     try {
-      // Get current stock levels
+      // Get current stock levels and track which products we've seen
       const currentStock = await this.getLatestStockLevels();
+      const currentProductIds = new Set<string>();
+
+      // Get all existing products from database to detect deletions
+      const existingProducts = await sql`
+        SELECT DISTINCT product_id, variant_id FROM stock_history
+      `;
+
+      const existingProductKeys = new Set(
+        existingProducts.map((p: any) =>
+          p.variant_id ? `${p.product_id}_${p.variant_id}` : `${p.product_id}`
+        )
+      );
 
       for (const item of inventoryItems) {
         const key = item.variantId ? `${item.productId}_${item.variantId}` : `${item.productId}`;
+        currentProductIds.add(key);
+
         const previousRecord = currentStock.get(key);
         const previousLevel = previousRecord?.inventory_level;
+
+        // Check if this is a new product/variant
+        if (!existingProductKeys.has(key)) {
+          // Record lifecycle event for new product
+          await this.recordLifecycleEvent(
+            item.productId,
+            item.variantId ? 'variant_added' : 'product_added',
+            'active',
+            item.variantId || undefined,
+            undefined,
+            item.lastUpdated,
+            item.lastUpdated,
+            'bigcommerce-sync'
+          );
+
+          console.log(`🆕 New ${item.variantId ? 'variant' : 'product'} detected: ${item.productId}${item.variantId ? `-${item.variantId}` : ''}`);
+        }
 
         // Only record if level changed or this is the first record
         if (!previousRecord || previousLevel !== item.inventoryLevel) {
@@ -1052,10 +1124,188 @@ export class VercelDatabase {
         }
       }
 
+      // Detect deleted products/variants
+      for (const existingKey of existingProductKeys) {
+        const keyStr = existingKey as string;
+        if (!currentProductIds.has(keyStr)) {
+          const [productIdStr, variantIdStr] = keyStr.split('_');
+          const productId = parseInt(productIdStr);
+          const variantId = variantIdStr ? parseInt(variantIdStr) : null;
+
+          // Record lifecycle event for deleted product
+          await this.recordLifecycleEvent(
+            productId,
+            variantId ? 'variant_deleted' : 'product_deleted',
+            'deleted',
+            variantId || undefined,
+            'active',
+            undefined,
+            undefined,
+            'bigcommerce-sync'
+          );
+
+          console.log(`🗑️ Deleted ${variantId ? 'variant' : 'product'} detected: ${productId}${variantId ? `-${variantId}` : ''}`);
+        }
+      }
+
       console.log(`✅ Synced ${inventoryItems.length} stock records`);
 
     } catch (error) {
       console.error('❌ Failed to sync stock data:', error);
+    }
+  }
+
+  /**
+   * Record product lifecycle event
+   */
+  static async recordLifecycleEvent(
+    productId: number,
+    eventType: 'product_added' | 'product_deleted' | 'variant_added' | 'variant_deleted' | 'product_reactivated',
+    newStatus: string,
+    variantId?: number,
+    previousStatus?: string,
+    bigcommerceCreatedDate?: string,
+    bigcommerceModifiedDate?: string,
+    detectedBy: string = 'stock-monitoring'
+  ): Promise<void> {
+    if (!sql) return;
+
+    try {
+      await sql`
+        INSERT INTO product_lifecycle_events (
+          product_id, variant_id, event_type, previous_status, new_status,
+          detected_by, bigcommerce_created_date, bigcommerce_modified_date
+        )
+        VALUES (
+          ${productId}, ${variantId || null}, ${eventType}, ${previousStatus || null},
+          ${newStatus}, ${detectedBy}, ${bigcommerceCreatedDate || null},
+          ${bigcommerceModifiedDate || null}
+        )
+      `;
+
+      console.log(`✅ Recorded lifecycle event: ${eventType} for product ${productId}`);
+
+    } catch (error) {
+      console.error(`❌ Failed to record lifecycle event for product ${productId}:`, error);
+    }
+  }
+
+  /**
+   * Get product lifecycle events
+   */
+  static async getProductLifecycleEvents(
+    productId: number,
+    variantId?: number
+  ): Promise<ProductLifecycleEvent[]> {
+    if (!sql) return [];
+
+    try {
+      const query = variantId
+        ? sql`
+            SELECT * FROM product_lifecycle_events
+            WHERE product_id = ${productId} AND variant_id = ${variantId}
+            ORDER BY event_date ASC
+          `
+        : sql`
+            SELECT * FROM product_lifecycle_events
+            WHERE product_id = ${productId} AND variant_id IS NULL
+            ORDER BY event_date ASC
+          `;
+
+      const rows = await query;
+      return rows as ProductLifecycleEvent[];
+
+    } catch (error) {
+      console.error(`❌ Failed to get lifecycle events for product ${productId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get stock periods (in-stock and out-of-stock date ranges) for a product
+   */
+  static async getStockPeriods(
+    productId: number,
+    variantId?: number
+  ): Promise<StockPeriod[]> {
+    if (!sql) return [];
+
+    try {
+      const query = variantId
+        ? sql`
+            SELECT *
+            FROM stock_history
+            WHERE product_id = ${productId} AND variant_id = ${variantId}
+            ORDER BY recorded_at ASC
+          `
+        : sql`
+            SELECT *
+            FROM stock_history
+            WHERE product_id = ${productId} AND variant_id IS NULL
+            ORDER BY recorded_at ASC
+          `;
+
+      const rows = await query;
+      const history = rows as DatabaseStockHistory[];
+
+      if (history.length === 0) {
+        return [];
+      }
+
+      const periods: StockPeriod[] = [];
+      let currentPeriod: Partial<StockPeriod> | null = null;
+
+      for (let i = 0; i < history.length; i++) {
+        const record = history[i];
+        const isInStock = record.is_in_stock;
+        const recordDate = record.recorded_at;
+
+        // If this is the first record or stock status changed
+        if (i === 0 || (currentPeriod && (isInStock ? 'in_stock' : 'out_of_stock') !== currentPeriod.period_type)) {
+          // Close previous period if exists
+          if (currentPeriod) {
+            currentPeriod.end_date = recordDate;
+            currentPeriod.end_level = record.inventory_level;
+
+            // Calculate duration
+            if (currentPeriod.start_date && currentPeriod.end_date) {
+              const startDate = new Date(currentPeriod.start_date);
+              const endDate = new Date(currentPeriod.end_date);
+              currentPeriod.duration_days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+            }
+
+            periods.push(currentPeriod as StockPeriod);
+          }
+
+          // Start new period
+          currentPeriod = {
+            period_type: isInStock ? 'in_stock' : 'out_of_stock',
+            start_date: recordDate,
+            end_date: null,
+            duration_days: null,
+            start_level: record.inventory_level,
+            end_level: null
+          };
+        }
+      }
+
+      // Close the final period if it exists (ongoing period)
+      if (currentPeriod) {
+        // For ongoing periods, end_date is null and duration is calculated from start to now
+        if (currentPeriod.start_date) {
+          const startDate = new Date(currentPeriod.start_date);
+          const now = new Date();
+          currentPeriod.duration_days = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        periods.push(currentPeriod as StockPeriod);
+      }
+
+      return periods;
+
+    } catch (error) {
+      console.error(`❌ Failed to get stock periods for product ${productId}:`, error);
+      return [];
     }
   }
 }
