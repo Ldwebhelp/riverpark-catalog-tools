@@ -32,6 +32,8 @@ riverpark-catalog-tools/
 │   │   │   └── page.tsx
 │   │   ├── database/           # Database Management
 │   │   │   └── page.tsx
+│   │   ├── stock-monitoring/   # 📊 Real-time Inventory Tracking
+│   │   │   └── page.tsx
 │   │   └── api/                # API endpoints
 │   │       ├── ai-content/     # AI content storage & retrieval
 │   │       │   ├── store/      # Store content in database & files
@@ -41,6 +43,7 @@ riverpark-catalog-tools/
 │   │       ├── bigcommerce/    # BigCommerce integration
 │   │       │   ├── real-products/    # Real product data
 │   │       │   └── categories/       # Product categories
+│   │       ├── stock-monitoring/     # Inventory tracking & alerts
 │   │       └── health/         # Health check endpoint
 │   ├── components/             # Reusable UI components
 │   │   ├── WebAppLayout.tsx            # Main application layout
@@ -48,6 +51,7 @@ riverpark-catalog-tools/
 │   │   ├── RealBigCommerceProducts.tsx      # Product list component
 │   │   ├── EnhancedAISpeciesGenerator.tsx   # Enhanced species system
 │   │   ├── AIEnhancedCareGuideGenerator.tsx # Care guide generator
+│   │   ├── StockMonitor.tsx            # 📊 Real-time inventory monitoring
 │   │   └── SpeciesGenerator.tsx             # Species data generator
 │   ├── lib/                    # Utilities and business logic
 │   │   ├── vercel-database.ts  # 🗄️ Vercel Postgres integration
@@ -550,6 +554,17 @@ Bundle Creation → UK Optimization → Success Prediction → Enhanced Export
 - **Cross-Project Integration**: Seamless content transfer between catalog-tools and catalyst-fresh projects
 - **File System Cleanup**: Removed 680+ obsolete JSON files (96% reduction from 705+ to 25 active files)
 - **Production Deployment**: Full build, commit, deploy cycle completed successfully
+
+### 📊 **Stock Monitoring System (September 2025)**
+- **Real-Time Inventory Tracking**: Complete BigCommerce stock level monitoring with automatic sync
+- **Product History Modals**: Clickable product entries showing complete inventory change history
+- **Database Integration**: PostgreSQL storage for stock history, lifecycle events, and alerts
+- **Professional UI**: Clean table interface with stock status badges and filtering options
+- **Alert System**: Low stock and out-of-stock notifications with threshold management
+- **Product Lifecycle Tracking**: Records when products are added/deleted from BigCommerce
+- **Clean Data Display**: Disabled misleading historical sections showing incorrect dates
+- **API Endpoints**: `/api/stock-monitoring` with sync, history, and alert functionality
+- **Production Ready**: Deployed with proper error handling and TypeScript compliance
 
 ---
 

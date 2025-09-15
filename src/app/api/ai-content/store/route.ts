@@ -26,6 +26,14 @@ export async function POST(request: NextRequest) {
     let localFilePath: string | null = null;
     const catalystFilePath: string | null = null;
 
+    // Initialize Catalyst deployment tracking
+    let catalystDeployment = {
+      success: false,
+      url: '',
+      paths: {},
+      error: null as string | null
+    };
+
     if (autoSave) {
       let localFileName: string;
 
@@ -51,6 +59,8 @@ export async function POST(request: NextRequest) {
       // Send content to catalyst project via API (production-safe)
       try {
         const catalystApiUrl = process.env.CATALYST_API_URL || 'https://riverpark-catalyst-fresh.vercel.app';
+        const fileName = contentType === 'species' ? `${productId}-species.json` : `${productId}-ai-search.json`;
+
         const sendResponse = await fetch(`${catalystApiUrl}/api/ai/save-ai-content`, {
           method: 'POST',
           headers: {
@@ -59,17 +69,28 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             productId: productId,
             contentType: contentType,
-            fileName: contentType === 'species' ? `${productId}-species.json` : `${productId}-ai-search.json`,
+            fileName: fileName,
             content: contentData
           })
         });
 
         if (sendResponse.ok) {
+          const responseData = await sendResponse.json();
+          catalystDeployment = {
+            success: true,
+            url: catalystApiUrl,
+            paths: responseData.paths,
+            error: null
+          };
           console.log(`✅ Successfully sent content to catalyst project via API`);
+          console.log(`📁 Catalyst paths:`, responseData.paths);
         } else {
+          const errorText = await sendResponse.text();
+          catalystDeployment.error = `HTTP ${sendResponse.status}: ${errorText}`;
           console.log(`⚠️ Failed to send content to catalyst project: ${sendResponse.status}`);
         }
       } catch (apiError) {
+        catalystDeployment.error = apiError instanceof Error ? apiError.message : 'Unknown error';
         console.log(`⚠️ Could not send content to catalyst project:`, apiError);
         // This is non-blocking - local storage still works
       }
@@ -125,7 +146,8 @@ export async function POST(request: NextRequest) {
         catalyst: catalystFilePath
       },
       database: !!dbContent,
-      content: dbContent || null
+      content: dbContent || null,
+      catalystDeployment: catalystDeployment
     });
 
   } catch (error) {

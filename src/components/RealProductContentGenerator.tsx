@@ -105,8 +105,8 @@ export default function RealProductContentGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [storageInfo, setStorageInfo] = useState<{
     database: boolean;
-    aiSearch: { local?: string; catalyst?: string; saved?: boolean };
-    species: { local?: string; catalyst?: string; saved?: boolean };
+    aiSearch: { local?: string; catalyst?: string; saved?: boolean; catalystDeployment?: any };
+    species: { local?: string; catalyst?: string; saved?: boolean; catalystDeployment?: any };
   } | null>(null);
   const [resending, setResending] = useState(false);
   const [sendingToCatalyst, setSendingToCatalyst] = useState(false);
@@ -115,10 +115,10 @@ export default function RealProductContentGenerator() {
   const [productContentMap, setProductContentMap] = useState<Map<number, {
     aiContent: GeneratedContent;
     speciesContent: SpeciesContent;
-    storageInfo: { 
-      database: boolean; 
-      aiSearch: { local?: string; catalyst?: string; saved?: boolean };
-      species: { local?: string; catalyst?: string; saved?: boolean };
+    storageInfo: {
+      database: boolean;
+      aiSearch: { local?: string; catalyst?: string; saved?: boolean; catalystDeployment?: any };
+      species: { local?: string; catalyst?: string; saved?: boolean; catalystDeployment?: any };
     } | null;
   }>>(new Map());
   
@@ -167,7 +167,7 @@ export default function RealProductContentGenerator() {
   });
 
   // Update storage info for a specific file type
-  const updateStorageInfo = (fileType: 'aiSearch' | 'species', data: { local?: string; catalyst?: string; saved: boolean }) => {
+  const updateStorageInfo = (fileType: 'aiSearch' | 'species', data: { local?: string; catalyst?: string; saved: boolean; catalystDeployment?: any }) => {
     setStorageInfo(prev => {
       const current = prev || initializeStorageInfo();
       return {
@@ -200,7 +200,8 @@ export default function RealProductContentGenerator() {
         updateStorageInfo('aiSearch', {
           local: aiResult.paths?.local,
           catalyst: aiResult.paths?.catalyst,
-          saved: true
+          saved: true,
+          catalystDeployment: aiResult.catalystDeployment
         });
         console.log('✅ AI search file saved:', aiResult.paths);
       } else {
@@ -225,7 +226,8 @@ export default function RealProductContentGenerator() {
         updateStorageInfo('species', {
           local: speciesResult.paths?.local,
           catalyst: speciesResult.paths?.catalyst,
-          saved: true
+          saved: true,
+          catalystDeployment: speciesResult.catalystDeployment
         });
         console.log('✅ Species file saved:', speciesResult.paths);
       } else {
@@ -581,13 +583,20 @@ export default function RealProductContentGenerator() {
                         <div className="space-y-1 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="text-gray-600">Catalyst Project:</span>
-                            <span className={`font-medium ${storageInfo?.aiSearch?.saved ? 'text-green-600' : 'text-yellow-600'}`}>
-                              {storageInfo?.aiSearch?.saved ? 'Saved' : 'Saving...'}
+                            <span className={`font-medium ${storageInfo?.aiSearch?.catalystDeployment?.success ? 'text-green-600' : storageInfo?.aiSearch?.catalystDeployment?.error ? 'text-red-600' : 'text-yellow-600'}`}>
+                              {storageInfo?.aiSearch?.catalystDeployment?.success ? '✅ Deployed' :
+                               storageInfo?.aiSearch?.catalystDeployment?.error ? '❌ Failed' :
+                               storageInfo?.aiSearch?.saved ? 'Deploying...' : 'Pending'}
                             </span>
                           </div>
-                          {storageInfo?.aiSearch?.catalyst && (
+                          {storageInfo?.aiSearch?.catalystDeployment?.success && (
                             <div className="text-gray-500 font-mono break-all bg-white p-1 rounded text-xs">
-                              /frontend/content/ai-search/
+                              {storageInfo.aiSearch.catalystDeployment.url}/content/ai-search/
+                            </div>
+                          )}
+                          {storageInfo?.aiSearch?.catalystDeployment?.error && (
+                            <div className="text-red-500 text-xs mt-1 p-1 bg-red-50 rounded">
+                              Error: {storageInfo.aiSearch.catalystDeployment.error}
                             </div>
                           )}
                         </div>
@@ -603,13 +612,20 @@ export default function RealProductContentGenerator() {
                         <div className="space-y-1 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="text-gray-600">Catalyst Project:</span>
-                            <span className={`font-medium ${storageInfo?.species?.saved ? 'text-green-600' : 'text-yellow-600'}`}>
-                              {storageInfo?.species?.saved ? 'Saved' : 'Saving...'}
+                            <span className={`font-medium ${storageInfo?.species?.catalystDeployment?.success ? 'text-green-600' : storageInfo?.species?.catalystDeployment?.error ? 'text-red-600' : 'text-yellow-600'}`}>
+                              {storageInfo?.species?.catalystDeployment?.success ? '✅ Deployed' :
+                               storageInfo?.species?.catalystDeployment?.error ? '❌ Failed' :
+                               storageInfo?.species?.saved ? 'Deploying...' : 'Pending'}
                             </span>
                           </div>
-                          {storageInfo?.species?.catalyst && (
+                          {storageInfo?.species?.catalystDeployment?.success && (
                             <div className="text-gray-500 font-mono break-all bg-white p-1 rounded text-xs">
-                              /frontend/content/species/
+                              {storageInfo.species.catalystDeployment.url}/content/species/
+                            </div>
+                          )}
+                          {storageInfo?.species?.catalystDeployment?.error && (
+                            <div className="text-red-500 text-xs mt-1 p-1 bg-red-50 rounded">
+                              Error: {storageInfo.species.catalystDeployment.error}
                             </div>
                           )}
                         </div>
